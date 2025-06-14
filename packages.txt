@@ -1,4 +1,4 @@
 build-essential
 libpango-1.0-0
-libharfbuzz0
+libharfbuzz0b
 libgdk-pixbuf2.0-0
