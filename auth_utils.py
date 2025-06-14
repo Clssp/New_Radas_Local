@@ -14,20 +14,21 @@ supabase: Client = init_supabase_client()
 
 # --- FUNÇÕES DE AUTENTICAÇÃO ---
 
+# Em auth_utils.py, dentro da função get_google_auth_url
 def get_google_auth_url(redirect_url: str):
-    """Gera a URL de autenticação do Google, forçando o fluxo implícito."""
+    """Gera a URL de autenticação do Google usando o fluxo PKCE (padrão e seguro)."""
     try:
         data = supabase.auth.sign_in_with_oauth({
             "provider": "google",
             "options": {
                 "redirect_to": redirect_url,
-                "flow_type": "implicit"  # A SOLUÇÃO DEFINITIVA PARA O 'invalid flow state'
+
             }
         })
         return data.url
     except Exception as e:
         st.error(f"Não foi possível gerar a URL de login: {e}")
-        return None
+        return Nonee
 
 def sign_up(email, password):
     """Realiza o cadastro de um novo usuário no Supabase."""

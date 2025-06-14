@@ -1,4 +1,4 @@
-# main.py - v7.1 (Arquitetura de Autenticação Final - Indentação Corrigida)
+# main.py - v8.0 (Arquitetura Final e Robusta)
 # ========================================================================
 
 import streamlit as st
@@ -22,7 +22,7 @@ except (KeyError, FileNotFoundError):
     st.error("As chaves de API não foram encontradas. Verifique `.streamlit/secrets.toml`.")
     st.stop()
 
-from auth_utils import sign_up, sign_in, sign_out, supabase, get_google_auth_url, exchange_code_for_session
+
 
 # --- DEFINIÇÃO DE TODAS AS FUNÇÕES AUXILIARES ---
 def url_para_base64(url):
@@ -277,37 +277,28 @@ def auth_page():
                 else: 
                     st.error(m)
 
-
 # --- ROTEAMENTO FINAL E ROBUSTO ---
-
 if 'user_session' not in st.session_state: 
     st.session_state.user_session = None
 
+try:
+    st.session_state.user_session = supabase.auth.get_session()
+except Exception:
+    pass
+
 query_params = st.query_params
-if "code" in query_params:
-    auth_code = query_params["code"][0]
-    if auth_code and st.session_state.user_session is None:
-        exchange_code_for_session(auth_code)
-        # Redireciona para a URL limpa usando JavaScript
-        st.components.v1.html(
-            f"""
-            <script>
-                window.location.href = "https://radarlocalapp.streamlit.app";
-            </script>
-            """,
-            height=0
-        )
-        st.stop()
-
-# Tenta obter a sessão novamente caso a página tenha sido apenas recarregada
-if st.session_state.user_session is None:
+# Verifica se o código de autorização está na URL e se ainda não há sessão
+if "code" in query_params and st.session_state.user_session is None:
+    auth_code = query_params["code"]
     try:
-        st.session_state.user_session = supabase.auth.get_session()
-    except Exception:
-        pass
+        # A CHAMADA CORRETA!
+        st.session_state.user_session = supabase.auth.exchange_code_for_session(auth_code)
+        
+        # Limpa a URL e recarrega a página para o estado logado
+        # Usando st.rerun() é mais limpo que JS injection
+        st.query_params.clear()
+        st.rerun()
 
-# Roteamento final
-if st.session_state.user_session:
-    main_app()
-else:
-    auth_page()
+    except AuthApiError as e:
+        st.error(f"Erro ao autenticar com o Google: {e.message}")
+        st.stop()
