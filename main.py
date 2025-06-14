@@ -1,5 +1,5 @@
-# main.py - v9.3 (Completo com Sanitização de Dados)
-# Adiciona uma função "sanitize_value" para blindar a geração de PDF contra dados de API malformados.
+# main.py - v9.4 (Verdadeiramente Completo com Histórico e Painel Admin)
+# Adiciona um histórico de downloads na sidebar e reativa o painel de admin.
 # ==============================================================================
 
 import streamlit as st
@@ -20,15 +20,11 @@ from pathlib import Path
 from gotrue.errors import AuthApiError
 from postgrest.exceptions import APIError
 
-# --- FUNÇÃO DE SANITIZAÇÃO (NOSSA "CAIXA DE FORÇA") ---
+# --- FUNÇÃO DE SANITIZAÇÃO ---
 def sanitize_value(value):
-    """Converte recursivamente qualquer valor para uma string segura para HTML."""
-    if isinstance(value, list):
-        return ', '.join(map(str, value))
-    if isinstance(value, dict):
-        return json.dumps(value, ensure_ascii=False)
-    if value is None:
-        return ""
+    if isinstance(value, list): return ', '.join(map(str, value))
+    if isinstance(value, dict): return json.dumps(value, ensure_ascii=False)
+    if value is None: return ""
     return str(value)
 
 # --- CONFIGURAÇÕES E INICIALIZAÇÃO ---
@@ -40,27 +36,18 @@ try:
     API_KEY_GOOGLE = st.secrets["google"]["api_key"]
     client = OpenAI(api_key=st.secrets["openai"]["api_key"])
 except (KeyError, FileNotFoundError):
-    st.error("As chaves de API (Google, OpenAI) não foram encontradas. Verifique seu arquivo `.streamlit/secrets.toml`.")
-    st.stop()
+    st.error("As chaves de API não foram encontradas. Verifique seu arquivo `.streamlit/secrets.toml`."); st.stop()
 
 
-# --- FUNÇÕES DE BANCO DE DADOS (SEGURAS) ---
+# --- FUNÇÕES DE BANCO DE DADOS ---
 def salvar_historico(nome, prof, loc, titulo, slogan, nivel, alerta):
     try:
         if 'user_session' in st.session_state and st.session_state.user_session:
             user_id = st.session_state.user_session.user.id
-            dados_para_inserir = {
-                "nome_usuario": nome, "tipo_negocio_pesquisado": prof,
-                "localizacao_pesquisada": loc, "nivel_concorrencia_ia": nivel,
-                "titulo_gerado_ia": titulo, "slogan_gerado_ia": slogan,
-                "alerta_oportunidade_ia": alerta, "data_consulta": datetime.now().isoformat(),
-                "user_id": user_id
-            }
+            dados_para_inserir = {"nome_usuario": nome, "tipo_negocio_pesquisado": prof, "localizacao_pesquisada": loc, "nivel_concorrencia_ia": nivel, "titulo_gerado_ia": titulo, "slogan_gerado_ia": slogan, "alerta_oportunidade_ia": alerta, "data_consulta": datetime.now().isoformat(), "user_id": user_id}
             supabase.table("consultas").insert(dados_para_inserir).execute()
-    except APIError as e:
-        st.warning(f"Não foi possível salvar o histórico: {e.message}")
-    except Exception as e:
-        st.warning(f"Ocorreu um erro inesperado ao salvar histórico: {e}")
+    except APIError as e: st.warning(f"Não foi possível salvar o histórico: {e.message}")
+    except Exception as e: st.warning(f"Ocorreu um erro inesperado ao salvar histórico: {e}")
 
 def carregar_historico_db():
     try:
@@ -69,12 +56,8 @@ def carregar_historico_db():
             response = supabase.table("consultas").select("*").eq("user_id", user_id).order("data_consulta", desc=True).execute()
             return pd.DataFrame(response.data)
         return pd.DataFrame()
-    except APIError as e:
-        st.error(f"Erro ao carregar histórico: {e.message}")
-        return pd.DataFrame()
-    except Exception as e:
-        st.error(f"Ocorreu um erro inesperado ao carregar histórico: {e}")
-        return pd.DataFrame()
+    except APIError as e: st.error(f"Erro ao carregar histórico: {e.message}"); return pd.DataFrame()
+    except Exception as e: st.error(f"Ocorreu um erro inesperado ao carregar histórico: {e}"); return pd.DataFrame()
 
 
 # --- FUNÇÕES DE API EXTERNAS ---
@@ -164,8 +147,6 @@ def carregar_logo_base64(caminho_logo: str) -> str:
 
 def gerar_html_relatorio(**kwargs):
     CSS = """<style> body { font-family: Arial, sans-serif; color: #333333; } .center { text-align: center; } .report-header { padding-bottom: 20px; border-bottom: 2px solid #eeeeee; margin-bottom: 40px; } .slogan { font-style: italic; color: #555555; } .section { margin-top: 35px; page-break-inside: avoid; } h1 { color: #2c3e50; } h3 { border-bottom: 1px solid #eeeeee; padding-bottom: 5px; color: #34495e; } h4 { color: #34495e; margin-bottom: 5px; } .alert { border: 1px solid #e74c3c; background-color: #fbecec; padding: 15px; margin-top: 20px; border-radius: 5px; } table { border-collapse: collapse; width: 100%; font-size: 12px; } th, td { border: 1px solid #cccccc; padding: 8px; text-align: left; } th { background-color: #f2f2f2; } .dossier-card { border: 1px solid #dddddd; padding: 15px; margin-top: 20px; page-break-inside: avoid; border-radius: 8px; background-color: #f9f9f9; } .dossier-card h4 { margin-top: 0; } .dossier-card strong { color: #3498db; font-weight: bold; } .dossier-card img { width: 100%; max-width: 400px; height: auto; border-radius: 8px; margin-bottom: 15px; } .matrix-container { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; } .matrix-quadrant { border: 1px solid #eeeeee; padding: 10px; border-radius: 5px; } ul { padding-left: 20px; } li { margin-bottom: 5px; } </style>"""
-    
-    # Sanitiza e prepara os dados da matriz
     matriz = kwargs.get("matriz_posicionamento", {})
     matriz_html = "<div class='matrix-container'>"
     quadrantes = {"lideres_premium": ("🏆 Líderes Premium", "(Qualidade Alta, Preço Alto)"), "custo_beneficio": ("👍 Custo-Benefício", "(Qualidade Alta, Preço Acessível)"), "armadilhas_valor": ("💀 Armadilhas de Valor", "(Qualidade Baixa, Preço Alto)"), "economicos": ("💰 Opções Econômicas", "(Qualidade Baixa, Preço Acessível)")}
@@ -174,19 +155,14 @@ def gerar_html_relatorio(**kwargs):
         lista_nomes = "<ul>" + "".join(f"<li>{sanitize_value(nome)}</li>" for nome in nomes) + "</ul>" if nomes else "<p>Nenhum concorrente neste quadrante.</p>"
         matriz_html += f"<div class='matrix-quadrant'><h4>{titulo}</h4><p><small>{subtitulo}</small></p>{lista_nomes}</div>"
     matriz_html += "</div>"
-    
-    # Sanitiza e prepara os dados dos dossiês
     dossie_html = ""
     for c in kwargs.get("concorrentes",[]):
         horarios_lista = "".join(f"<li>{sanitize_value(h)}</li>" for h in c.get('horarios', []))
         foto_tag = f'<img src="data:image/jpeg;base64,{c.get("foto_base64")}" alt="Foto de {sanitize_value(c.get("nome"))}">' if c.get("foto_base64") else "<p><small>Foto não disponível.</small></p>"
         dossie_html += f"""<div class='dossier-card'><h4>{sanitize_value(c.get('nome'))}</h4>{foto_tag}<p><strong>Nível de Preço:</strong> {sanitize_value(c.get("nivel_preco_str", "N/A"))}</p><p><strong>Arquétipo:</strong> {sanitize_value(c.get('dossie_ia',{}).get('arquétipo', 'N/A'))}</p><p><strong>Ponto Forte:</strong> {sanitize_value(c.get('dossie_ia',{}).get('ponto_forte','N/A'))}</p><p><strong>Fraqueza Explorável:</strong> {sanitize_value(c.get('dossie_ia', {}).get('fraqueza_exploravel','N/A'))}</p><p><strong>Resumo Estratégico:</strong> {sanitize_value(c.get('dossie_ia',{}).get('resumo_estrategico',''))}</p><h4>Horário de Funcionamento</h4><ul>{horarios_lista}</ul></div>"""
-
-    # Sanitiza e prepara os dados principais para o corpo do HTML
     sugestoes_html = "".join([f"<li>{sanitize_value(s)}</li>" for s in kwargs.get("sugestoes_estrategicas", [])])
     alerta_nicho = kwargs.get('alerta_nicho')
     alerta_html = f"<div class='section alert'><h3>🚨 Alerta de Oportunidade</h3><p>{sanitize_value(alerta_nicho)}</p></div>" if alerta_nicho else ""
-    
     body = f"""<html><head><meta charset='utf-8'>{CSS}</head><body><div class='report-header center'><img src='data:image/png;base64,{kwargs.get("base64_logo","")}' width='120'><h1>{sanitize_value(kwargs.get("titulo"))}</h1><p class='slogan'>"{sanitize_value(kwargs.get("slogan"))}"</p></div><div class='section'><h3>Diagnóstico Geral do Mercado</h3>{sanitize_value(kwargs.get("horario_pico_inferido", ""))}</div><div class='section center'><img src='data:image/png;base64,{kwargs.get("grafico_radar_b64","")}' width='500'></div><div class='section'><h3>Matriz de Posicionamento Competitivo</h3>{matriz_html}</div><div class='section'><h3>Sugestões Estratégicas</h3><ul>{sugestoes_html}</ul></div>{alerta_html}<div class='section' style='page-break-before: always;'><h3>Apêndice: Dossiês Estratégicos dos Concorrentes</h3>{dossie_html}</div></body></html>"""
     return body
 
@@ -195,8 +171,29 @@ def gerar_pdf(html):
     pisa.CreatePDF(html.encode('utf-8'), dest=pdf_bytes)
     return pdf_bytes.getvalue()
 
+def gerar_html_simplificado_para_pdf(dados_relatorio):
+    titulo = sanitize_value(dados_relatorio.get('titulo_gerado_ia'))
+    slogan = sanitize_value(dados_relatorio.get('slogan_gerado_ia'))
+    alerta = sanitize_value(dados_relatorio.get('alerta_oportunidade_ia'))
+    html = f"""<html><head><meta charset='utf-8'></head><body style="font-family: Arial, sans-serif;"><div style="text-align: center; padding-bottom: 20px; border-bottom: 1px solid #eee;"><h1>{titulo}</h1><p style="font-style: italic;">"{slogan}"</p></div><div style="margin-top: 30px;"><h3>Alerta de Oportunidade</h3><p>{alerta if alerta else "Nenhum alerta de oportunidade foi gerado para esta análise."}</p></div><div style="margin-top: 30px;"><p><small>Relatório gerado pelo Radar Local em {datetime.now().strftime('%d/%m/%Y %H:%M')}</small></p></div></body></html>"""
+    return html
 
-# --- TELA DE AUTENTICAÇÃO (AUTH PAGE) ---
+
+# --- FUNÇÃO DE ADMIN ---
+def check_password():
+    if st.session_state.get("admin_autenticado", False):
+        return True
+    with st.sidebar.expander("🔑 Acesso Restrito Admin"):
+        with st.form("admin_form"):
+            pwd = st.text_input("Senha", type="password", key="admin_pwd")
+            if st.form_submit_button("Acessar"):
+                if pwd == st.secrets["admin"]["password"]:
+                    st.session_state.admin_autenticado = True
+                    st.rerun()
+                else: st.error("Senha incorreta.")
+    return False
+
+# --- TELA DE AUTENTICAÇÃO ---
 def auth_page():
     st.title("Bem-vindo ao Radar Local 📡")
     st.write("Faça login para acessar sua plataforma de inteligência de mercado ou crie uma nova conta.")
@@ -224,12 +221,33 @@ def auth_page():
                     st.balloons()
                 else: st.error(message)
 
-# --- APLICAÇÃO PRINCIPAL (MAIN APP) ---
+# --- APLICAÇÃO PRINCIPAL ---
 def main_app():
     st.sidebar.write(f"Logado como: **{st.session_state.user_session.user.email}**")
     st.sidebar.button("Sair (Logout)", on_click=sign_out, use_container_width=True)
     st.sidebar.markdown("---")
+    
+    st.sidebar.header("Seus Relatórios")
+    df_historico = carregar_historico_db()
+    if not df_historico.empty:
+        for index, row in df_historico.head(10).iterrows():
+            nome_relatorio = f"{row['tipo_negocio_pesquisado']} em {row['localizacao_pesquisada']}"
+            data_consulta = pd.to_datetime(row['data_consulta']).strftime('%d/%m/%y')
+            html_simplificado = gerar_html_simplificado_para_pdf(row)
+            pdf_simplificado = gerar_pdf(html_simplificado)
+            st.sidebar.download_button(label=f"📄 {nome_relatorio} ({data_consulta})", data=pdf_simplificado, file_name=f"relatorio_{row['tipo_negocio_pesquisado']}_{data_consulta}.pdf", mime="application/pdf", key=f"pdf_{index}", use_container_width=True)
+    else:
+        st.sidebar.info("Você ainda não gerou nenhum relatório.")
+    st.sidebar.markdown("---")
 
+    if check_password():
+        st.sidebar.success("✅ Acesso admin concedido!")
+        st.sidebar.subheader("Painel de Administrador")
+        # Futuramente, carregar todos os relatórios para o admin
+        # response_admin = supabase.table("consultas").select("*").execute()
+        # df_admin = pd.DataFrame(response_admin.data)
+        # st.sidebar.dataframe(df_admin)
+    
     base64_logo = carregar_logo_base64("logo_radar_local.png")
     st.markdown(f"<div style='text-align: center;'><img src='data:image/png;base64,{base64_logo}' width='120'><h1>Radar Local</h1><p>Inteligência de Mercado para Autônomos e Pequenos Negócios</p></div>", unsafe_allow_html=True)
     st.markdown("---")
