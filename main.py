@@ -1,5 +1,5 @@
-# main.py - v10.0 (A Conquista)
-# Barra de progresso honesta, atualização de estado sem refresh e correção definitiva de RLS.
+# main.py - v10.1 (Vitória Final)
+# Corrige as chamadas às funções de IA, resolvendo o TypeError final.
 # ==============================================================================
 
 import streamlit as st
@@ -53,7 +53,6 @@ def salvar_historico(nome_usuario, profissao, localizacao, titulo, slogan, nivel
                 "pdf_storage_path": storage_path
             }
             response = supabase.table("consultas").insert(dados_para_inserir).execute()
-            # Retorna o registro recém-criado para atualização do estado local
             if response.data:
                 return response.data[0]
             return None
@@ -243,7 +242,6 @@ def main_app():
     st.sidebar.markdown("---")
     st.sidebar.header("Seus Relatórios")
     
-    # Carrega o histórico do DB apenas uma vez e armazena no estado da sessão
     if 'historico_df' not in st.session_state:
         st.session_state.historico_df = carregar_historico_db()
 
@@ -258,7 +256,7 @@ def main_app():
                     nome_relatorio = f"{row['tipo_negocio_pesquisado']} em {row['localizacao_pesquisada']}"
                     data_consulta = pd.to_datetime(row['data_consulta']).strftime('%d/%m/%y')
                     st.sidebar.link_button(label=f"📄 {nome_relatorio} ({data_consulta})", url=url_assinada, use_container_width=True, key=f"link_{index}")
-                except Exception: pass # Ignora erros ao gerar links individuais
+                except Exception: pass
     else:
         st.sidebar.info("Você ainda não gerou nenhum relatório.")
     st.sidebar.markdown("---")
@@ -267,11 +265,10 @@ def main_app():
         st.sidebar.success("✅ Acesso admin concedido!")
         st.sidebar.subheader("Painel de Administrador")
     
-    # --- Gerenciamento do Conteúdo Principal (Formulário vs. Relatório) ---
+    # --- Gerenciamento do Conteúdo Principal ---
     if 'ultimo_relatorio_gerado' not in st.session_state:
         st.session_state.ultimo_relatorio_gerado = None
 
-    # Se um relatório foi gerado, mostra o relatório. Senão, mostra o formulário.
     if st.session_state.ultimo_relatorio_gerado:
         html_relatorio, profissao, pdf_bytes = st.session_state.ultimo_relatorio_gerado
         st.subheader(f"Relatório Estratégico para {profissao}")
@@ -299,7 +296,6 @@ def main_app():
             if not all([profissao, localizacao, nome_usuario]):
                 st.warning("⚠️ Preencha todos os campos."); st.stop()
             
-            # --- BARRA DE PROGRESSO HONESTA E MOTIVACIONAL ---
             FRASES_PROGRESSO = [
                 "Analisando o terreno digital e identificando os principais players...", "Mergulhando fundo nos dados do primeiro concorrente chave...",
                 "Extraindo insights e padrões do segundo competidor...", "Decodificando as estratégias do terceiro oponente...",
@@ -308,52 +304,59 @@ def main_app():
                 "Compilando seu dossiê de inteligência...", "Polindo os detalhes finais do seu relatório..."
             ]
             locais_a_processar_count = 5
-            total_passos = 2 + locais_a_processar_count + 5 # 2 passos iniciais, 1 por concorrente, 5 passos finais de IA
+            total_passos = 2 + locais_a_processar_count + 6 # Passos fixos + concorrentes + passos de IA/relatório
             passo_atual = 0
             
             progress_container = st.empty()
-            def atualizar_progresso(incremento=1):
+            def atualizar_progresso():
                 nonlocal passo_atual
-                passo_atual += incremento
+                passo_atual += 1
                 percentual = min(1.0, passo_atual / total_passos)
                 texto = FRASES_PROGRESSO[min(len(FRASES_PROGRESSO) - 1, passo_atual - 1)]
                 progress_container.progress(percentual, text=texto)
 
-            atualizar_progresso(0) # Inicia a barra
+            atualizar_progresso()
             resultados_google = buscar_concorrentes(profissao, localizacao)
             if not resultados_google:
                 st.error("Nenhum concorrente encontrado. Tente uma busca mais específica."); st.stop()
             
-            atualizar_progresso() # Passo 1
+            atualizar_progresso()
             
             concorrentes, comentarios, dados_ia = [], [], []
             locais_a_processar = resultados_google[:locais_a_processar_count]
             
             for lugar in locais_a_processar:
-                atualizar_progresso() # Passo 2, 3, 4, 5, 6
+                atualizar_progresso()
                 if not (pid := lugar.get("place_id")): continue
-                # ... (resto da lógica de coleta de dados permanece a mesma)
                 detalhes = buscar_detalhes_lugar(pid)
-                # ... etc
-                concorrentes.append(...)
-                dados_ia.append(...)
+                foto_ref = detalhes.get('photos', [{}])[0].get('photo_reference')
+                foto_url = f"https://maps.googleapis.com/maps/api/place/photo?maxwidth=400&photoreference={foto_ref}&key={API_KEY_GOOGLE}" if foto_ref else ""
+                foto_base64 = url_para_base64(foto_url)
+                niveis_preco = {1: "$ (Barato)", 2: "$$ (Moderado)", 3: "$$$ (Caro)", 4: "$$$$ (Muito Caro)"}
+                nivel_preco_int = detalhes.get("price_level")
+                nivel_preco_str = niveis_preco.get(nivel_preco_int, "N/A")
+                horarios = detalhes.get('opening_hours', {}).get('weekday_text', ['Horário não informado'])
+                reviews = [r.get("text", "") for r in detalhes.get("reviews", []) if r.get("text")]
+                comentarios.extend(reviews)
+                concorrentes.append({"nome": detalhes.get("name"), "nota": detalhes.get("rating"), "total_avaliacoes": detalhes.get("user_ratings_total"), "site": detalhes.get("website"), "foto_base64": foto_base64, "nivel_preco": nivel_preco_int, "nivel_preco_str": nivel_preco_str, "horarios": horarios, "dossie_ia": {}})
+                dados_ia.append({"nome_concorrente": detalhes.get("name"), "comentarios": " ".join(reviews[:5])})
+
+            atualizar_progresso(); sentimentos = analisar_sentimentos_por_topico_ia("\n".join(comentarios[:20]))
+            atualizar_progresso(); insights_ia = enriquecer_com_ia(sentimentos, "\n".join(comentarios[:50]))
+            atualizar_progresso(); dossies = gerar_dossies_em_lote_ia(dados_ia)
+            atualizar_progresso(); matriz = classificar_concorrentes_matriz(concorrentes)
+            atualizar_progresso(); grafico_radar = gerar_grafico_radar_base64(sentimentos)
             
-            atualizar_progresso(); sentimentos = analisar_sentimentos_por_topico_ia(...) # Passo 7
-            atualizar_progresso(); insights_ia = enriquecer_com_ia(...) # Passo 8
-            atualizar_progresso(); dossies = gerar_dossies_em_lote_ia(...) # Passo 9
-            atualizar_progresso(); matriz = classificar_concorrentes_matriz(...) # Passo 10
-            atualizar_progresso(); grafico_radar = gerar_grafico_radar_base64(...) # Passo 11
-            
-            dados_html = {...} # Seu dicionário completo aqui
+            dados_html = {"base64_logo": base64_logo, "titulo": insights_ia["titulo"], "slogan": insights_ia["slogan"], "concorrentes": concorrentes, "sugestoes_estrategicas": insights_ia["sugestoes"], "alerta_nicho": insights_ia["alerta"], "grafico_radar_b64": grafico_radar, "matriz_posicionamento": matriz, "horario_pico_inferido": insights_ia["horario_pico"]}
             html_relatorio = gerar_html_relatorio(**dados_html)
             pdf_bytes = gerar_pdf(html_relatorio)
             
             if html_relatorio and pdf_bytes:
-                atualizar_progresso(); # Passo 12: Salvando...
+                atualizar_progresso()
                 storage_path = f"{st.session_state.user_session.user.id}/relatorio_{profissao.replace(' ', '_')}_{int(time.time())}.pdf"
                 try:
-                    supabase.storage.from_("relatorios").upload(...)
-                    novo_relatorio_db = salvar_historico(...)
+                    supabase.storage.from_("relatorios").upload(path=storage_path, file=pdf_bytes, file_options={"content-type": "application/pdf"})
+                    novo_relatorio_db = salvar_historico(nome_usuario, profissao, localizacao, insights_ia["titulo"], insights_ia["slogan"], insights_ia["nivel"], insights_ia["alerta"], storage_path)
                     if novo_relatorio_db:
                         novo_df = pd.DataFrame([novo_relatorio_db])
                         st.session_state.historico_df = pd.concat([novo_df, st.session_state.historico_df], ignore_index=True)
@@ -366,7 +369,6 @@ def main_app():
             else:
                 progress_container.empty()
                 st.error("❌ Desculpe, não foi possível gerar a análise...")
-
 
 # --- ROTEAMENTO E EXECUÇÃO ---
 def run():
