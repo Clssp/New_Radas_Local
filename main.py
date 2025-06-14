@@ -1,5 +1,5 @@
-# main.py - v9.2 (Completo e com Geração de Relatório Robusta)
-# Adicionada programação defensiva para tratar dados da API na geração do HTML.
+# main.py - v9.3 (Completo com Sanitização de Dados)
+# Adiciona uma função "sanitize_value" para blindar a geração de PDF contra dados de API malformados.
 # ==============================================================================
 
 import streamlit as st
@@ -19,6 +19,17 @@ import numpy as np
 from pathlib import Path
 from gotrue.errors import AuthApiError
 from postgrest.exceptions import APIError
+
+# --- FUNÇÃO DE SANITIZAÇÃO (NOSSA "CAIXA DE FORÇA") ---
+def sanitize_value(value):
+    """Converte recursivamente qualquer valor para uma string segura para HTML."""
+    if isinstance(value, list):
+        return ', '.join(map(str, value))
+    if isinstance(value, dict):
+        return json.dumps(value, ensure_ascii=False)
+    if value is None:
+        return ""
+    return str(value)
 
 # --- CONFIGURAÇÕES E INICIALIZAÇÃO ---
 st.set_page_config(page_title="Radar Local", page_icon="📡", layout="wide")
@@ -153,30 +164,30 @@ def carregar_logo_base64(caminho_logo: str) -> str:
 
 def gerar_html_relatorio(**kwargs):
     CSS = """<style> body { font-family: Arial, sans-serif; color: #333333; } .center { text-align: center; } .report-header { padding-bottom: 20px; border-bottom: 2px solid #eeeeee; margin-bottom: 40px; } .slogan { font-style: italic; color: #555555; } .section { margin-top: 35px; page-break-inside: avoid; } h1 { color: #2c3e50; } h3 { border-bottom: 1px solid #eeeeee; padding-bottom: 5px; color: #34495e; } h4 { color: #34495e; margin-bottom: 5px; } .alert { border: 1px solid #e74c3c; background-color: #fbecec; padding: 15px; margin-top: 20px; border-radius: 5px; } table { border-collapse: collapse; width: 100%; font-size: 12px; } th, td { border: 1px solid #cccccc; padding: 8px; text-align: left; } th { background-color: #f2f2f2; } .dossier-card { border: 1px solid #dddddd; padding: 15px; margin-top: 20px; page-break-inside: avoid; border-radius: 8px; background-color: #f9f9f9; } .dossier-card h4 { margin-top: 0; } .dossier-card strong { color: #3498db; font-weight: bold; } .dossier-card img { width: 100%; max-width: 400px; height: auto; border-radius: 8px; margin-bottom: 15px; } .matrix-container { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; } .matrix-quadrant { border: 1px solid #eeeeee; padding: 10px; border-radius: 5px; } ul { padding-left: 20px; } li { margin-bottom: 5px; } </style>"""
+    
+    # Sanitiza e prepara os dados da matriz
     matriz = kwargs.get("matriz_posicionamento", {})
     matriz_html = "<div class='matrix-container'>"
     quadrantes = {"lideres_premium": ("🏆 Líderes Premium", "(Qualidade Alta, Preço Alto)"), "custo_beneficio": ("👍 Custo-Benefício", "(Qualidade Alta, Preço Acessível)"), "armadilhas_valor": ("💀 Armadilhas de Valor", "(Qualidade Baixa, Preço Alto)"), "economicos": ("💰 Opções Econômicas", "(Qualidade Baixa, Preço Acessível)")}
     for chave, (titulo, subtitulo) in quadrantes.items():
         nomes = matriz.get(chave, [])
-        lista_nomes = "<ul>" + "".join(f"<li>{nome}</li>" for nome in nomes) + "</ul>" if nomes else "<p>Nenhum concorrente neste quadrante.</p>"
+        lista_nomes = "<ul>" + "".join(f"<li>{sanitize_value(nome)}</li>" for nome in nomes) + "</ul>" if nomes else "<p>Nenhum concorrente neste quadrante.</p>"
         matriz_html += f"<div class='matrix-quadrant'><h4>{titulo}</h4><p><small>{subtitulo}</small></p>{lista_nomes}</div>"
     matriz_html += "</div>"
     
+    # Sanitiza e prepara os dados dos dossiês
     dossie_html = ""
     for c in kwargs.get("concorrentes",[]):
-        horarios_lista = "".join(f"<li>{h}</li>" for h in c.get('horarios', []))
-        foto_tag = f'<img src="data:image/jpeg;base64,{c.get("foto_base64")}" alt="Foto de {c.get("nome")}">' if c.get("foto_base64") else "<p><small>Foto não disponível.</small></p>"
-        dossie_html += f"""<div class='dossier-card'><h4>{c.get('nome')}</h4>{foto_tag}<p><strong>Nível de Preço:</strong> {c.get("nivel_preco_str", "N/A")}</p><p><strong>Arquétipo:</strong> {c.get('dossie_ia',{}).get('arquétipo', 'N/A')}</p><p><strong>Ponto Forte:</strong> {c.get('dossie_ia',{}).get('ponto_forte','N/A')}</p><p><strong>Fraqueza Explorável:</strong> {c.get('dossie_ia', {}).get('fraqueza_exploravel','N/A')}</p><p><strong>Resumo Estratégico:</strong> {c.get('dossie_ia',{}).get('resumo_estrategico','')}</p><h4>Horário de Funcionamento</h4><ul>{horarios_lista}</ul></div>"""
+        horarios_lista = "".join(f"<li>{sanitize_value(h)}</li>" for h in c.get('horarios', []))
+        foto_tag = f'<img src="data:image/jpeg;base64,{c.get("foto_base64")}" alt="Foto de {sanitize_value(c.get("nome"))}">' if c.get("foto_base64") else "<p><small>Foto não disponível.</small></p>"
+        dossie_html += f"""<div class='dossier-card'><h4>{sanitize_value(c.get('nome'))}</h4>{foto_tag}<p><strong>Nível de Preço:</strong> {sanitize_value(c.get("nivel_preco_str", "N/A"))}</p><p><strong>Arquétipo:</strong> {sanitize_value(c.get('dossie_ia',{}).get('arquétipo', 'N/A'))}</p><p><strong>Ponto Forte:</strong> {sanitize_value(c.get('dossie_ia',{}).get('ponto_forte','N/A'))}</p><p><strong>Fraqueza Explorável:</strong> {sanitize_value(c.get('dossie_ia', {}).get('fraqueza_exploravel','N/A'))}</p><p><strong>Resumo Estratégico:</strong> {sanitize_value(c.get('dossie_ia',{}).get('resumo_estrategico',''))}</p><h4>Horário de Funcionamento</h4><ul>{horarios_lista}</ul></div>"""
 
-    # --- Bloco de construção do body com Programação Defensiva ---
-    sugestoes = kwargs.get("sugestoes_estrategicas", [])
-    if not isinstance(sugestoes, list): sugestoes = []
-    sugestoes_html = "".join([f"<li>{str(s)}</li>" for s in sugestoes])
-    
+    # Sanitiza e prepara os dados principais para o corpo do HTML
+    sugestoes_html = "".join([f"<li>{sanitize_value(s)}</li>" for s in kwargs.get("sugestoes_estrategicas", [])])
     alerta_nicho = kwargs.get('alerta_nicho')
-    alerta_html = f"<div class='section alert'><h3>🚨 Alerta de Oportunidade</h3><p>{str(alerta_nicho)}</p></div>" if alerta_nicho else ""
+    alerta_html = f"<div class='section alert'><h3>🚨 Alerta de Oportunidade</h3><p>{sanitize_value(alerta_nicho)}</p></div>" if alerta_nicho else ""
     
-    body = f"""<html><head><meta charset='utf-8'>{CSS}</head><body><div class='report-header center'><img src='data:image/png;base64,{kwargs.get("base64_logo","")}' width='120'><h1>{kwargs.get("titulo")}</h1><p class='slogan'>"{kwargs.get("slogan")}"</p></div><div class='section'><h3>Diagnóstico Geral do Mercado</h3>{kwargs.get("horario_pico_inferido", "")}</div><div class='section center'><img src='data:image/png;base64,{kwargs.get("grafico_radar_b64","")}' width='500'></div><div class='section'><h3>Matriz de Posicionamento Competitivo</h3>{matriz_html}</div><div class='section'><h3>Sugestões Estratégicas</h3><ul>{sugestoes_html}</ul></div>{alerta_html}<div class='section' style='page-break-before: always;'><h3>Apêndice: Dossiês Estratégicos dos Concorrentes</h3>{dossie_html}</div></body></html>"""
+    body = f"""<html><head><meta charset='utf-8'>{CSS}</head><body><div class='report-header center'><img src='data:image/png;base64,{kwargs.get("base64_logo","")}' width='120'><h1>{sanitize_value(kwargs.get("titulo"))}</h1><p class='slogan'>"{sanitize_value(kwargs.get("slogan"))}"</p></div><div class='section'><h3>Diagnóstico Geral do Mercado</h3>{sanitize_value(kwargs.get("horario_pico_inferido", ""))}</div><div class='section center'><img src='data:image/png;base64,{kwargs.get("grafico_radar_b64","")}' width='500'></div><div class='section'><h3>Matriz de Posicionamento Competitivo</h3>{matriz_html}</div><div class='section'><h3>Sugestões Estratégicas</h3><ul>{sugestoes_html}</ul></div>{alerta_html}<div class='section' style='page-break-before: always;'><h3>Apêndice: Dossiês Estratégicos dos Concorrentes</h3>{dossie_html}</div></body></html>"""
     return body
 
 def gerar_pdf(html):
