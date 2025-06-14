@@ -1,0 +1,19 @@
+# Arquivo de segredos do Streamlit - NUNCA ENVIAR!
+.streamlit/secrets.toml
+
+# Arquivos de ambiente Python
+venv/
+.env
+.envrc
+__pycache__/
+*.pyc
+
+# Arquivos gerados pelo sistema e logs
+*.log
+*.pdf
+
+# Arquivos do VSCode
+.vscode/
+
+# Arquivo de histórico de consultas - DADOS LOCAIS
+historico_consultas.csv
