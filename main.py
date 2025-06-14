@@ -256,9 +256,11 @@ def auth_page():
     app_url = "https://radarlocalapp.streamlit.app"
     google_auth_url = get_google_auth_url(app_url)
 
+    # Dentro da função auth_page() no seu main.py
+
     if google_auth_url:
         button_html = f"""
-        <a href="{google_auth_url}" target="_self" style="
+        <a href="{google_auth_url}" target="_top" style="
             display: block; padding: 0.75rem 1rem; background-color: #FF4B4B;
             color: white; text-decoration: none; border-radius: 0.5rem;
             font-weight: bold; text-align: center; margin-bottom: 1rem;
