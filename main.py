@@ -1,5 +1,5 @@
-# main.py - v9.1 (Verdadeiramente Completo e Refinado)
-# UI, UX e Lógica de Feedback aprimoradas. Autenticação simplificada e segura.
+# main.py - v9.2 (Completo e com Geração de Relatório Robusta)
+# Adicionada programação defensiva para tratar dados da API na geração do HTML.
 # ==============================================================================
 
 import streamlit as st
@@ -23,10 +23,8 @@ from postgrest.exceptions import APIError
 # --- CONFIGURAÇÕES E INICIALIZAÇÃO ---
 st.set_page_config(page_title="Radar Local", page_icon="📡", layout="wide")
 
-# Importa as funções de autenticação do nosso novo e limpo auth_utils
 from auth_utils import sign_up, sign_in, sign_out, supabase
 
-# Carrega as chaves de API de forma segura a partir do st.secrets
 try:
     API_KEY_GOOGLE = st.secrets["google"]["api_key"]
     client = OpenAI(api_key=st.secrets["openai"]["api_key"])
@@ -35,10 +33,8 @@ except (KeyError, FileNotFoundError):
     st.stop()
 
 
-# --- FUNÇÕES DE BANCO DE DADOS (SEGURAS, USANDO SUPABASE API) ---
-
+# --- FUNÇÕES DE BANCO DE DADOS (SEGURAS) ---
 def salvar_historico(nome, prof, loc, titulo, slogan, nivel, alerta):
-    """Salva o histórico da consulta no Supabase de forma segura."""
     try:
         if 'user_session' in st.session_state and st.session_state.user_session:
             user_id = st.session_state.user_session.user.id
@@ -56,7 +52,6 @@ def salvar_historico(nome, prof, loc, titulo, slogan, nivel, alerta):
         st.warning(f"Ocorreu um erro inesperado ao salvar histórico: {e}")
 
 def carregar_historico_db():
-    """Carrega o histórico de consultas do usuário logado de forma segura."""
     try:
         if 'user_session' in st.session_state and st.session_state.user_session:
             user_id = st.session_state.user_session.user.id
@@ -71,14 +66,12 @@ def carregar_historico_db():
         return pd.DataFrame()
 
 
-# --- FUNÇÕES DE API EXTERNAS (GOOGLE & OPENAI) ---
-
+# --- FUNÇÕES DE API EXTERNAS ---
 @st.cache_data(ttl=3600)
 def buscar_concorrentes(profissao, localizacao):
     url = f"https://maps.googleapis.com/maps/api/place/textsearch/json?query={profissao} em {localizacao}&key={API_KEY_GOOGLE}&language=pt-BR"
     response = requests.get(url)
-    if response.status_code == 200:
-        return response.json().get("results", [])
+    if response.status_code == 200: return response.json().get("results", [])
     st.error(f"Erro na API do Google: {response.status_code}. Verifique sua chave.")
     return []
 
@@ -87,8 +80,7 @@ def buscar_detalhes_lugar(place_id):
     fields = "name,formatted_address,review,formatted_phone_number,website,opening_hours,rating,user_ratings_total,photos,price_level"
     url = f"https://maps.googleapis.com/maps/api/place/details/json?place_id={place_id}&fields={fields}&key={API_KEY_GOOGLE}&language=pt-BR"
     response = requests.get(url)
-    if response.status_code == 200:
-        return response.json().get("result", {})
+    if response.status_code == 200: return response.json().get("result", {})
     return {}
 
 @st.cache_data(ttl=3600)
@@ -98,11 +90,9 @@ def analisar_sentimentos_por_topico_ia(comentarios):
         resposta = client.chat.completions.create(model="gpt-3.5-turbo", messages=[{"role": "user", "content": prompt}], temperature=0.1)
         dados = json.loads(resposta.choices[0].message.content)
         base = {"Atendimento": 5, "Preço": 5, "Qualidade": 5, "Ambiente": 5, "Tempo de Espera": 5}
-        base.update(dados)
-        return base
+        base.update(dados); return base
     except Exception as e:
-        st.warning(f"IA de sentimentos falhou: {e}.")
-        return {}
+        st.warning(f"IA de sentimentos falhou: {e}."); return {}
 
 @st.cache_data(ttl=3600)
 def enriquecer_com_ia(sentimentos, comentarios_gerais):
@@ -110,14 +100,9 @@ def enriquecer_com_ia(sentimentos, comentarios_gerais):
     try:
         resp = client.chat.completions.create(model="gpt-4-turbo-preview", response_format={"type": "json_object"}, messages=[{"role": "user", "content": prompt}])
         dados = json.loads(resp.choices[0].message.content)
-        return {
-            "titulo": dados.get("titulo", "Análise Estratégica"), "slogan": dados.get("slogan", "Insights para o seu sucesso."),
-            "nivel": dados.get("nivel_concorrencia", "N/D"), "sugestoes": dados.get("sugestoes_estrategicas", []),
-            "alerta": dados.get("alerta_nicho", ""), "horario_pico": dados.get("horario_pico_inferido", "Não foi possível inferir a partir dos comentários.")
-        }
+        return {"titulo": dados.get("titulo", "Análise Estratégica"), "slogan": dados.get("slogan", "Insights para o seu sucesso."), "nivel": dados.get("nivel_concorrencia", "N/D"), "sugestoes": dados.get("sugestoes_estrategicas", []), "alerta": dados.get("alerta_nicho", ""), "horario_pico": dados.get("horario_pico_inferido", "Não foi possível inferir a partir dos comentários.")}
     except Exception as e:
-        st.warning(f"IA de enriquecimento falhou: {e}")
-        return {"titulo": "Análise", "slogan": "Indisponível", "nivel": "N/D", "sugestoes": [], "alerta": "", "horario_pico": "N/A"}
+        st.warning(f"IA de enriquecimento falhou: {e}"); return {"titulo": "Análise", "slogan": "Indisponível", "nivel": "N/D", "sugestoes": [], "alerta": "", "horario_pico": "N/A"}
 
 @st.cache_data(ttl=3600)
 def gerar_dossies_em_lote_ia(dados):
@@ -127,20 +112,17 @@ def gerar_dossies_em_lote_ia(dados):
         content = json.loads(resp.choices[0].message.content)
         return next((v for k, v in content.items() if isinstance(v, list)), [])
     except Exception as e:
-        st.warning(f"IA de dossiês falhou: {e}")
-        return []
+        st.warning(f"IA de dossiês falhou: {e}"); return []
 
-# --- FUNÇÕES DE PROCESSAMENTO DE DADOS E GERAÇÃO DE GRÁFICOS ---
 
+# --- FUNÇÕES DE PROCESSAMENTO E GERAÇÃO DE RELATÓRIO ---
 def classificar_concorrentes_matriz(concorrentes):
     matriz = {"lideres_premium": [], "custo_beneficio": [], "armadilhas_valor": [], "economicos": []}
     for c in concorrentes:
         nota, preco = c.get("nota"), c.get("nivel_preco")
         if nota is None or preco is None: continue
-        if nota >= 4.0:
-            matriz["lideres_premium" if preco >= 3 else "custo_beneficio"].append(c.get("nome"))
-        else:
-            matriz["armadilhas_valor" if preco >= 3 else "economicos"].append(c.get("nome"))
+        if nota >= 4.0: matriz["lideres_premium" if preco >= 3 else "custo_beneficio"].append(c.get("nome"))
+        else: matriz["armadilhas_valor" if preco >= 3 else "economicos"].append(c.get("nome"))
     return matriz
 
 def gerar_grafico_radar_base64(sentimentos):
@@ -149,39 +131,29 @@ def gerar_grafico_radar_base64(sentimentos):
     angles = np.linspace(0, 2 * np.pi, len(labels), endpoint=False).tolist()
     stats += stats[:1]; angles += angles[:1]
     fig, ax = plt.subplots(figsize=(6, 6), subplot_kw=dict(polar=True))
-    ax.fill(angles, stats, color='#007bff', alpha=0.25)
-    ax.plot(angles, stats, color='#007bff', linewidth=2)
+    ax.fill(angles, stats, color='#007bff', alpha=0.25); ax.plot(angles, stats, color='#007bff', linewidth=2)
     ax.set_ylim(0, 10); ax.set_yticklabels([])
     ax.set_thetagrids(np.degrees(angles[:-1]), labels, fontsize=12)
     ax.set_title("Diagnóstico de Sentimentos por Tópico", fontsize=16, y=1.1)
-    buf = BytesIO()
-    plt.savefig(buf, format="png", bbox_inches='tight')
-    plt.close(fig)
+    buf = BytesIO(); plt.savefig(buf, format="png", bbox_inches='tight'); plt.close(fig)
     return base64.b64encode(buf.getvalue()).decode("utf-8")
 
 def url_para_base64(url: str) -> str:
     if not url: return ""
     try:
         response = requests.get(url, timeout=10)
-        if response.status_code == 200:
-            return base64.b64encode(response.content).decode("utf-8")
+        if response.status_code == 200: return base64.b64encode(response.content).decode("utf-8")
         return ""
-    except requests.RequestException:
-        return ""
+    except requests.RequestException: return ""
 
 def carregar_logo_base64(caminho_logo: str) -> str:
     try:
-        with open(caminho_logo, "rb") as f:
-            return base64.b64encode(f.read()).decode("utf-8")
-    except FileNotFoundError:
-        return ""
+        with open(caminho_logo, "rb") as f: return base64.b64encode(f.read()).decode("utf-8")
+    except FileNotFoundError: return ""
 
 def gerar_html_relatorio(**kwargs):
-    CSS = """<style> body { font-family: Arial, sans-serif; color: #333; } .center { text-align: center; } .report-header { padding-bottom: 20px; border-bottom: 2px solid #eee; margin-bottom: 40px; } .slogan { font-style: italic; color: #555; } .section { margin-top: 35px; page-break-inside: avoid; } h1 { color: #2c3e50; } h3 { border-bottom: 1px solid #eee; padding-bottom: 5px; color: #34495e; } h4 { color: #34495e; margin-bottom: 5px; } .alert { border: 1px solid #e74c3c; background-color: #fbecec; padding: 15px; margin-top: 20px; border-radius: 5px;} table { border-collapse: collapse; width: 100%; font-size: 12px; } th, td { border: 1px solid #ccc; padding: 8px; text-align: left; } th { background-color: #f2f2f2; } .dossier-card { border: 1px solid #ddd; padding: 15px; margin-top: 20px; page-break-inside: avoid; border-radius: 8px; background-color: #f9f9f9; } .dossier-card h4 { margin-top: 0; } .dossier-card strong { color: #33498db; } .dossier-card img { width: 100%; max-width: 400px; height: auto; border-radius: 8px; margin-bottom: 15px; } .matrix-container { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; } .matrix-quadrant { border: 1px solid #eee; padding: 10px; border-radius: 5px; } ul { padding-left: 20px; } li { margin-bottom: 5px; } </style>"""
-    
-    # O resto da função continua aqui...
+    CSS = """<style> body { font-family: Arial, sans-serif; color: #333333; } .center { text-align: center; } .report-header { padding-bottom: 20px; border-bottom: 2px solid #eeeeee; margin-bottom: 40px; } .slogan { font-style: italic; color: #555555; } .section { margin-top: 35px; page-break-inside: avoid; } h1 { color: #2c3e50; } h3 { border-bottom: 1px solid #eeeeee; padding-bottom: 5px; color: #34495e; } h4 { color: #34495e; margin-bottom: 5px; } .alert { border: 1px solid #e74c3c; background-color: #fbecec; padding: 15px; margin-top: 20px; border-radius: 5px; } table { border-collapse: collapse; width: 100%; font-size: 12px; } th, td { border: 1px solid #cccccc; padding: 8px; text-align: left; } th { background-color: #f2f2f2; } .dossier-card { border: 1px solid #dddddd; padding: 15px; margin-top: 20px; page-break-inside: avoid; border-radius: 8px; background-color: #f9f9f9; } .dossier-card h4 { margin-top: 0; } .dossier-card strong { color: #3498db; font-weight: bold; } .dossier-card img { width: 100%; max-width: 400px; height: auto; border-radius: 8px; margin-bottom: 15px; } .matrix-container { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; } .matrix-quadrant { border: 1px solid #eeeeee; padding: 10px; border-radius: 5px; } ul { padding-left: 20px; } li { margin-bottom: 5px; } </style>"""
     matriz = kwargs.get("matriz_posicionamento", {})
-    # ...    matriz = kwargs.get("matriz_posicionamento", {})
     matriz_html = "<div class='matrix-container'>"
     quadrantes = {"lideres_premium": ("🏆 Líderes Premium", "(Qualidade Alta, Preço Alto)"), "custo_beneficio": ("👍 Custo-Benefício", "(Qualidade Alta, Preço Acessível)"), "armadilhas_valor": ("💀 Armadilhas de Valor", "(Qualidade Baixa, Preço Alto)"), "economicos": ("💰 Opções Econômicas", "(Qualidade Baixa, Preço Acessível)")}
     for chave, (titulo, subtitulo) in quadrantes.items():
@@ -189,12 +161,22 @@ def gerar_html_relatorio(**kwargs):
         lista_nomes = "<ul>" + "".join(f"<li>{nome}</li>" for nome in nomes) + "</ul>" if nomes else "<p>Nenhum concorrente neste quadrante.</p>"
         matriz_html += f"<div class='matrix-quadrant'><h4>{titulo}</h4><p><small>{subtitulo}</small></p>{lista_nomes}</div>"
     matriz_html += "</div>"
+    
     dossie_html = ""
     for c in kwargs.get("concorrentes",[]):
         horarios_lista = "".join(f"<li>{h}</li>" for h in c.get('horarios', []))
         foto_tag = f'<img src="data:image/jpeg;base64,{c.get("foto_base64")}" alt="Foto de {c.get("nome")}">' if c.get("foto_base64") else "<p><small>Foto não disponível.</small></p>"
         dossie_html += f"""<div class='dossier-card'><h4>{c.get('nome')}</h4>{foto_tag}<p><strong>Nível de Preço:</strong> {c.get("nivel_preco_str", "N/A")}</p><p><strong>Arquétipo:</strong> {c.get('dossie_ia',{}).get('arquétipo', 'N/A')}</p><p><strong>Ponto Forte:</strong> {c.get('dossie_ia',{}).get('ponto_forte','N/A')}</p><p><strong>Fraqueza Explorável:</strong> {c.get('dossie_ia', {}).get('fraqueza_exploravel','N/A')}</p><p><strong>Resumo Estratégico:</strong> {c.get('dossie_ia',{}).get('resumo_estrategico','')}</p><h4>Horário de Funcionamento</h4><ul>{horarios_lista}</ul></div>"""
-    body = f"""<html><head><meta charset='utf-8'>{CSS}</head><body><div class='report-header center'><img src='data:image/png;base64,{kwargs.get("base64_logo","")}' width='120'><h1>{kwargs.get("titulo")}</h1><p class='slogan'>"{kwargs.get("slogan")}"</p></div><div class='section'><h3>Diagnóstico Geral do Mercado</h3>{kwargs.get("horario_pico_inferido", "")}</div><div class='section center'><img src='data:image/png;base64,{kwargs.get("grafico_radar_b64","")}' width='500'></div><div class='section'><h3>Matriz de Posicionamento Competitivo</h3>{matriz_html}</div><div class='section'><h3>Sugestões Estratégicas</h3><ul>{''.join(f"<li>{s}</li>" for s in kwargs.get("sugestoes_estrategicas",[]))}</ul></div>{f"<div class='section alert'><h3>🚨 Alerta de Oportunidade</h3><p>{kwargs.get('alerta_nicho')}</p></div>" if kwargs.get('alerta_nicho') else ""}<div class='section' style='page-break-before: always;'><h3>Apêndice: Dossiês Estratégicos dos Concorrentes</h3>{dossie_html}</div></body></html>"""
+
+    # --- Bloco de construção do body com Programação Defensiva ---
+    sugestoes = kwargs.get("sugestoes_estrategicas", [])
+    if not isinstance(sugestoes, list): sugestoes = []
+    sugestoes_html = "".join([f"<li>{str(s)}</li>" for s in sugestoes])
+    
+    alerta_nicho = kwargs.get('alerta_nicho')
+    alerta_html = f"<div class='section alert'><h3>🚨 Alerta de Oportunidade</h3><p>{str(alerta_nicho)}</p></div>" if alerta_nicho else ""
+    
+    body = f"""<html><head><meta charset='utf-8'>{CSS}</head><body><div class='report-header center'><img src='data:image/png;base64,{kwargs.get("base64_logo","")}' width='120'><h1>{kwargs.get("titulo")}</h1><p class='slogan'>"{kwargs.get("slogan")}"</p></div><div class='section'><h3>Diagnóstico Geral do Mercado</h3>{kwargs.get("horario_pico_inferido", "")}</div><div class='section center'><img src='data:image/png;base64,{kwargs.get("grafico_radar_b64","")}' width='500'></div><div class='section'><h3>Matriz de Posicionamento Competitivo</h3>{matriz_html}</div><div class='section'><h3>Sugestões Estratégicas</h3><ul>{sugestoes_html}</ul></div>{alerta_html}<div class='section' style='page-break-before: always;'><h3>Apêndice: Dossiês Estratégicos dos Concorrentes</h3>{dossie_html}</div></body></html>"""
     return body
 
 def gerar_pdf(html):
@@ -203,7 +185,7 @@ def gerar_pdf(html):
     return pdf_bytes.getvalue()
 
 
-# --- TELA DE AUTENTICAÇÃO (AUTH PAGE) COM UX MELHORADO ---
+# --- TELA DE AUTENTICAÇÃO (AUTH PAGE) ---
 def auth_page():
     st.title("Bem-vindo ao Radar Local 📡")
     st.write("Faça login para acessar sua plataforma de inteligência de mercado ou crie uma nova conta.")
@@ -216,10 +198,8 @@ def auth_page():
             if st.form_submit_button("Entrar", use_container_width=True, type="primary"):
                 with st.spinner("Verificando credenciais..."):
                     success, message = sign_in(email, pwd)
-                if success:
-                    st.rerun()
-                else:
-                    st.error(message)
+                if success: st.rerun()
+                else: st.error(message)
     with col2:
         with st.form("signup_form"):
             st.markdown("#### Crie sua conta")
@@ -231,10 +211,9 @@ def auth_page():
                     st.success(message)
                     st.info("📧 Enviamos um link de confirmação para o seu e-mail. Não se esqueça de verificar a caixa de spam!")
                     st.balloons()
-                else:
-                    st.error(message)
+                else: st.error(message)
 
-# --- APLICAÇÃO PRINCIPAL (MAIN APP) COM LÓGICA DE UI REFINADA ---
+# --- APLICAÇÃO PRINCIPAL (MAIN APP) ---
 def main_app():
     st.sidebar.write(f"Logado como: **{st.session_state.user_session.user.email}**")
     st.sidebar.button("Sair (Logout)", on_click=sign_out, use_container_width=True)
@@ -258,8 +237,7 @@ def main_app():
 
     if enviar:
         if not all([profissao, localizacao, nome_usuario]):
-            st.warning("⚠️ Preencha todos os campos.")
-            st.stop()
+            st.warning("⚠️ Preencha todos os campos."); st.stop()
         
         placeholder_formulario.empty()
         
@@ -267,11 +245,9 @@ def main_app():
         resultados_google = buscar_concorrentes(profissao, localizacao)
         
         if not resultados_google:
-            st.error("Nenhum concorrente encontrado. Tente uma busca mais específica.")
-            st.stop()
+            st.error("Nenhum concorrente encontrado. Tente uma busca mais específica."); st.stop()
 
-        progress_bar.progress(0.15, text="Mapa competitivo criado! ✅")
-        time.sleep(1)
+        progress_bar.progress(0.15, text="Mapa competitivo criado! ✅"); time.sleep(1)
 
         concorrentes, comentarios, dados_ia = [], [], []
         locais_a_processar = resultados_google[:5]
@@ -298,36 +274,26 @@ def main_app():
 
         progress_bar.progress(0.55, text="Nossa IA está decodificando a voz dos seus clientes...")
         sentimentos = analisar_sentimentos_por_topico_ia("\n".join(comentarios[:20]))
-        
         progress_bar.progress(0.70, text="A IA Radar Local está gerando insights estratégicos...")
         insights_ia = enriquecer_com_ia(sentimentos, "\n".join(comentarios[:50]))
-        
         progress_bar.progress(0.85, text="Cruzando dados para encontrar oportunidades únicas...")
         dossies = gerar_dossies_em_lote_ia(dados_ia)
         matriz = classificar_concorrentes_matriz(concorrentes)
-        
-        progress_bar.progress(0.90, text="Análise estratégica concluída! ✅")
-        time.sleep(1)
-        
+        progress_bar.progress(0.90, text="Análise estratégica concluída! ✅"); time.sleep(1)
         progress_bar.progress(0.95, text="Compilando seu Dossiê de Inteligência Estratégica...")
+        
         dossies_map = {d.get('nome_concorrente'): d for d in dossies}
         for c in concorrentes: c['dossie_ia'] = dossies_map.get(c['nome'], {})
         
         grafico_radar = gerar_grafico_radar_base64(sentimentos)
-        dados_html = {
-            "base64_logo": base64_logo, "titulo": insights_ia["titulo"], "slogan": insights_ia["slogan"],
-            "concorrentes": concorrentes, "sugestoes_estrategicas": insights_ia["sugestoes"],
-            "alerta_nicho": insights_ia["alerta"], "grafico_radar_b64": grafico_radar,
-            "matriz_posicionamento": matriz, "horario_pico_inferido": insights_ia["horario_pico"]
-        }
+        dados_html = {"base64_logo": base64_logo, "titulo": insights_ia["titulo"], "slogan": insights_ia["slogan"], "concorrentes": concorrentes, "sugestoes_estrategicas": insights_ia["sugestoes"], "alerta_nicho": insights_ia["alerta"], "grafico_radar_b64": grafico_radar, "matriz_posicionamento": matriz, "horario_pico_inferido": insights_ia["horario_pico"]}
         
         html_relatorio = gerar_html_relatorio(**dados_html)
         pdf_bytes = gerar_pdf(html_relatorio)
         
         salvar_historico(nome_usuario, profissao, localizacao, insights_ia["titulo"], insights_ia["slogan"], insights_ia["nivel"], insights_ia["alerta"])
         
-        progress_bar.progress(1.0, text="Seu Radar Local está pronto! 🚀")
-        time.sleep(2)
+        progress_bar.progress(1.0, text="Seu Radar Local está pronto! 🚀"); time.sleep(2)
         progress_bar.empty()
 
         if html_relatorio and pdf_bytes:
