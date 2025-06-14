@@ -275,7 +275,7 @@ def main_app():
 def auth_page():
     st.title("Bem-vindo ao Radar Local 📡"); st.write("Faça login ou crie uma conta.")
     if st.button("Entrar com Google", use_container_width=True, type="primary"):
-        url = "https://SEU-APP-URL.streamlit.app"
+        url = "https://radarlocalapp.streamlit.app/"
         supabase.auth.sign_in_with_oauth({"provider": "google", "options": {"redirect_to": url}})
     st.markdown("<p style='text-align: center;'>ou</p>", unsafe_allow_html=True)
     login_tab, signup_tab = st.tabs(["Login", "Cadastro"])
