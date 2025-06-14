@@ -178,7 +178,10 @@ def carregar_logo_base64(caminho_logo: str) -> str:
 
 def gerar_html_relatorio(**kwargs):
     CSS = """<style> body { font-family: Arial, sans-serif; color: #333; } .center { text-align: center; } .report-header { padding-bottom: 20px; border-bottom: 2px solid #eee; margin-bottom: 40px; } .slogan { font-style: italic; color: #555; } .section { margin-top: 35px; page-break-inside: avoid; } h1 { color: #2c3e50; } h3 { border-bottom: 1px solid #eee; padding-bottom: 5px; color: #34495e; } h4 { color: #34495e; margin-bottom: 5px; } .alert { border: 1px solid #e74c3c; background-color: #fbecec; padding: 15px; margin-top: 20px; border-radius: 5px;} table { border-collapse: collapse; width: 100%; font-size: 12px; } th, td { border: 1px solid #ccc; padding: 8px; text-align: left; } th { background-color: #f2f2f2; } .dossier-card { border: 1px solid #ddd; padding: 15px; margin-top: 20px; page-break-inside: avoid; border-radius: 8px; background-color: #f9f9f9; } .dossier-card h4 { margin-top: 0; } .dossier-card strong { color: #33498db; } .dossier-card img { width: 100%; max-width: 400px; height: auto; border-radius: 8px; margin-bottom: 15px; } .matrix-container { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; } .matrix-quadrant { border: 1px solid #eee; padding: 10px; border-radius: 5px; } ul { padding-left: 20px; } li { margin-bottom: 5px; } </style>"""
+    
+    # O resto da função continua aqui...
     matriz = kwargs.get("matriz_posicionamento", {})
+    # ...    matriz = kwargs.get("matriz_posicionamento", {})
     matriz_html = "<div class='matrix-container'>"
     quadrantes = {"lideres_premium": ("🏆 Líderes Premium", "(Qualidade Alta, Preço Alto)"), "custo_beneficio": ("👍 Custo-Benefício", "(Qualidade Alta, Preço Acessível)"), "armadilhas_valor": ("💀 Armadilhas de Valor", "(Qualidade Baixa, Preço Alto)"), "economicos": ("💰 Opções Econômicas", "(Qualidade Baixa, Preço Acessível)")}
     for chave, (titulo, subtitulo) in quadrantes.items():
