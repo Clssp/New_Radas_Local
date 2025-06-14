@@ -249,13 +249,6 @@ def main_app():
             with st.expander("Ver Histórico Completo"): st.dataframe(df)
         else: st.info("Histórico de consultas vazio.")
 
-# --- TELA DE LOGIN/CADASTRO ---
-def auth_page():
-    st.title("Bem-vindo ao Radar Local 📡"); st.write("Faça login ou crie uma conta.")
-
-    app_url = "https://radarlocalapp.streamlit.app"
-    google_auth_url = get_google_auth_url(app_url)
-
     # --- ATUALIZAÇÃO FINAL: TELA DE LOGIN/CADASTRO ---
 def auth_page():
     st.title("Bem-vindo ao Radar Local 📡"); st.write("Faça login ou crie uma conta.")
