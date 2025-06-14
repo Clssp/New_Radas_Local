@@ -292,31 +292,44 @@ def auth_page():
 
 # --- ATUALIZAÇÃO: ROTEAMENTO INTELIGENTE ---
 
+# main.py
+
+# ... (todo o código do main.py antes disso) ...
+
+# --- ATUALIZAÇÃO FINAL: ROTEAMENTO ROBUSTO SEM LOOP ---
+
 # 1. Inicializa a sessão se ela não existir.
 if 'user_session' not in st.session_state: 
     st.session_state['user_session'] = None
 
-# 2. Tenta obter a sessão a partir do armazenamento local do Supabase
-#    Isso é útil para usuários que já logaram e estão voltando.
+# 2. Verifica se a sessão já existe (útil para usuários que voltam ao site)
 if st.session_state.user_session is None:
     try:
         current_session = supabase.auth.get_session()
         if current_session:
             st.session_state.user_session = current_session
     except Exception:
-        pass # Ignora erros se a API do Supabase ainda não estiver pronta
+        pass
 
-# 3. Lógica para quando o usuário volta do login com Google (o elo perdido)
-#    Verificamos se o 'code' de autorização está nos parâmetros da URL.
+# 3. Lógica para quando o usuário VOLTA do login com Google
 query_params = st.query_params
-if query_params.get("code") and st.session_state.user_session is None:
-    # Este é o momento exato após o redirecionamento do Google.
-    # O Supabase.js usará o 'code' para criar a sessão.
-    # Apenas esperamos um segundo e recarregamos a página.
-    time.sleep(1)
-    st.rerun()
+if query_params.get("code"):
+    # Se o 'code' está na URL, significa que o login com Google foi um sucesso.
+    # O Supabase.js no navegador já cuidou da sessão.
+    # Nós precisamos apenas limpar a URL e recarregar a página.
+    
+    st.write("Autenticando com o Google, um momento...") # Mensagem para o usuário
+    
+    # Executa um script JavaScript para recarregar a página na sua URL base.
+    js_code = f"""
+        <script>
+            window.location.href = "{st.secrets.supabase.url.replace('.supabase.co', '.streamlit.app')}";
+        </script>
+    """
+    st.components.v1.html(js_code)
+    st.stop() # Interrompe a execução do script para evitar mostrar a página de login
 
-# 4. Faz a verificação final para decidir qual página mostrar.
+# 4. Verificação final para decidir qual página mostrar
 if st.session_state.user_session is None: 
     auth_page()
 else: 
