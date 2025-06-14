@@ -1,4 +1,4 @@
-# auth_utils.py (Versão Simplificada - Foco em E-mail/Senha)
+# auth_utils.py (v9.1 - Comunicação Humanizada)
 
 import streamlit as st
 from supabase import create_client, Client
@@ -14,41 +14,43 @@ def init_supabase_client():
 
 supabase: Client = init_supabase_client()
 
-# --- FUNÇÕES DE AUTENTICAÇÃO ESSENCIAIS ---
+# --- FUNÇÕES DE AUTENTICAÇÃO COM FEEDBACK MELHORADO ---
 
 def sign_up(email, password):
-    """Realiza o cadastro de um novo usuário no Supabase."""
+    """Realiza o cadastro de um novo usuário com mensagens de feedback claras."""
     try:
         res = supabase.auth.sign_up({"email": email, "password": password})
-        # Mensagem de sucesso clara para o usuário
         mensagem = "✅ Cadastro realizado! Verifique seu e-mail para confirmar a conta."
         return True, mensagem
     except AuthApiError as e:
         if "User already registered" in str(e):
-            mensagem = "⚠️ Este e-mail já está cadastrado. Tente fazer o login."
+            mensagem = "⚠️ Este e-mail já está cadastrado. Por favor, tente fazer o login."
         else:
-            mensagem = f"❌ Erro no cadastro: {e.message}"
+            mensagem = f"❌ Erro no cadastro. Tente novamente."
         return False, mensagem
-    except Exception as e:
-        mensagem = f"❌ Ocorreu um erro inesperado: {e}"
+    except Exception:
+        mensagem = f"❌ Não foi possível conectar aos nossos servidores. Tente novamente mais tarde."
         return False, mensagem
 
 def sign_in(email, password):
-    """Realiza o login de um usuário no Supabase e armazena a sessão."""
+    """Realiza o login de um usuário com mensagens de erro humanizadas."""
     try:
         res = supabase.auth.sign_in_with_password({"email": email, "password": password})
-        # Armazena a sessão completa no st.session_state
         st.session_state.user_session = res.session
         return True, None
     except AuthApiError as e:
-        return False, f"❌ Erro de login: {e.message}"
-    except Exception as e:
-        return False, f"❌ Ocorreu um erro inesperado: {e}"
+        if "Invalid login credentials" in str(e):
+            return False, "❌ E-mail ou senha incorretos. Por favor, verifique seus dados."
+        else:
+            return False, "❌ Ocorreu um problema ao tentar fazer login. Tente novamente."
+    except Exception:
+        return False, "❌ Não foi possível conectar ao servidor. Verifique sua conexão com a internet."
 
 def sign_out():
     """Realiza o logout do usuário e limpa a sessão."""
     try:
         supabase.auth.sign_out()
         st.session_state.user_session = None
+        st.rerun()
     except Exception as e:
         st.error(f"Erro ao fazer logout: {e}")
