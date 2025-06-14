@@ -292,20 +292,31 @@ def auth_page():
 
 # --- ATUALIZAÇÃO: ROTEAMENTO INTELIGENTE ---
 
-# 1. Primeiro, inicializamos a sessão se ela não existir.
+# 1. Inicializa a sessão se ela não existir.
 if 'user_session' not in st.session_state: 
     st.session_state['user_session'] = None
 
-# 2. Se a sessão estiver vazia, tenta processar um possível login OAuth.
+# 2. Tenta obter a sessão a partir do armazenamento local do Supabase
+#    Isso é útil para usuários que já logaram e estão voltando.
 if st.session_state.user_session is None:
-    # A importação deve ser aqui para garantir que a função exista
-    from auth_utils import process_oauth_login
-    
-    # Se o process_oauth_login retornar True, encontramos uma nova sessão.
-    if process_oauth_login():
-        st.rerun() # Força o recarregamento da página.
+    try:
+        current_session = supabase.auth.get_session()
+        if current_session:
+            st.session_state.user_session = current_session
+    except Exception:
+        pass # Ignora erros se a API do Supabase ainda não estiver pronta
 
-# 3. Faz a verificação final para decidir qual página mostrar.
+# 3. Lógica para quando o usuário volta do login com Google (o elo perdido)
+#    Verificamos se o 'code' de autorização está nos parâmetros da URL.
+query_params = st.query_params
+if query_params.get("code") and st.session_state.user_session is None:
+    # Este é o momento exato após o redirecionamento do Google.
+    # O Supabase.js usará o 'code' para criar a sessão.
+    # Apenas esperamos um segundo e recarregamos a página.
+    time.sleep(1)
+    st.rerun()
+
+# 4. Faz a verificação final para decidir qual página mostrar.
 if st.session_state.user_session is None: 
     auth_page()
 else: 
