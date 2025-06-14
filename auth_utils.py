@@ -68,3 +68,19 @@ def sign_out():
         st.session_state.user_session = None # Limpa a sessão local
     except Exception as e:
         st.error(f"Erro ao fazer logout: {e}")
+
+        # auth_utils.py
+
+def get_google_auth_url(redirect_url: str):
+    """Gera a URL de autenticação do Google."""
+    try:
+        data = supabase.auth.sign_in_with_oauth({
+            "provider": "google",
+            "options": {
+                "redirect_to": redirect_url
+            }
+        })
+        return data.url
+    except Exception as e:
+        st.error(f"Não foi possível gerar a URL de login: {e}")
+        return None

@@ -274,9 +274,34 @@ def main_app():
 # --- TELA DE LOGIN/CADASTRO ---
 def auth_page():
     st.title("Bem-vindo ao Radar Local 📡"); st.write("Faça login ou crie uma conta.")
-    if st.button("Entrar com Google", use_container_width=True, type="primary"):
-        url = "https://radarlocalapp.streamlit.app/"
-        supabase.auth.sign_in_with_oauth({"provider": "google", "options": {"redirect_to": url}})
+
+    # --- LÓGICA DE LOGIN COM GOOGLE CORRIGIDA ---
+    # 1. Defina a URL final do seu app
+    app_url = "https://radarlocalapp.streamlit.app" # Substitua se for diferente
+
+    # 2. Gere a URL de autenticação do Google
+    google_auth_url = get_google_auth_url(app_url)
+
+    # 3. Crie um "botão" usando HTML/CSS e st.markdown
+    if google_auth_url:
+        button_html = f"""
+        <a href="{google_auth_url}" target="_self" style="
+            display: inline-block;
+            padding: 0.5em 1em;
+            background-color: #FF4B4B;
+            color: white;
+            text-decoration: none;
+            border-radius: 0.5rem;
+            font-weight: bold;
+            width: 95%;
+            text-align: center;
+        ">
+            Entrar com Google
+        </a>
+        """
+        st.markdown(button_html, unsafe_allow_html=True)
+    # --- FIM DA LÓGICA CORRIGIDA ---
+
     st.markdown("<p style='text-align: center;'>ou</p>", unsafe_allow_html=True)
     login_tab, signup_tab = st.tabs(["Login", "Cadastro"])
     with login_tab:
