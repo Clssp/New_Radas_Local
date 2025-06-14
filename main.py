@@ -1,5 +1,5 @@
-# main.py - v9.6 (Completo com Correção de Lógica)
-# Corrige o NameError movendo a geração de HTML/PDF para depois da definição de dados_html.
+# main.py - v9.7 (Completo com Correções de UX e Logout)
+# Corrige a atualização do histórico e o fluxo de logout.
 # ==============================================================================
 
 import streamlit as st
@@ -218,7 +218,12 @@ def auth_page():
 # --- APLICAÇÃO PRINCIPAL ---
 def main_app():
     st.sidebar.write(f"Logado como: **{st.session_state.user_session.user.email}**")
-    st.sidebar.button("Sair (Logout)", on_click=sign_out, use_container_width=True)
+    
+    # --- FLUXO DE LOGOUT CORRIGIDO ---
+    if st.sidebar.button("Sair (Logout)", use_container_width=True):
+        sign_out()
+        st.rerun()
+
     st.sidebar.markdown("---")
     
     st.sidebar.header("Seus Relatórios")
@@ -307,10 +312,8 @@ def main_app():
         
         grafico_radar = gerar_grafico_radar_base64(sentimentos)
         
-        # O dicionário dados_html é criado aqui, antes de ser usado.
         dados_html = {"base64_logo": base64_logo, "titulo": insights_ia["titulo"], "slogan": insights_ia["slogan"], "concorrentes": concorrentes, "sugestoes_estrategicas": insights_ia["sugestoes"], "alerta_nicho": insights_ia["alerta"], "grafico_radar_b64": grafico_radar, "matriz_posicionamento": matriz, "horario_pico_inferido": insights_ia["horario_pico"]}
         
-        # Agora as chamadas são feitas na ordem correta.
         html_relatorio = gerar_html_relatorio(**dados_html)
         pdf_bytes = gerar_pdf(html_relatorio)
         
@@ -327,13 +330,16 @@ def main_app():
             except Exception as e:
                 st.error(f"Ocorreu um erro ao salvar seu relatório: {e}"); st.stop()
             
-            progress_bar.progress(1.0, text="Seu Radar Local está pronto! 🚀"); time.sleep(2)
+            progress_bar.progress(1.0, text="Seu Radar Local está pronto! 🚀"); time.sleep(1)
             progress_bar.empty()
             
             st.success("✅ Análise concluída e salva com sucesso!")
             st.subheader(f"Relatório Estratégico para {profissao}")
             st.components.v1.html(html_relatorio, height=600, scrolling=True)
             st.download_button("📥 Baixar o Relatório Gerado", pdf_bytes, f"relatorio_{profissao}.pdf", "application/pdf", use_container_width=True)
+            
+            time.sleep(3)
+            st.rerun()
         else:
             progress_bar.empty()
             st.error("❌ Desculpe, não foi possível gerar a análise. Tente usar termos mais específicos.")

@@ -1,4 +1,5 @@
-# auth_utils.py (v9.1 - Comunicação Humanizada)
+# auth_utils.py (v9.2 - Completo e Simplificado)
+# Remove st.rerun() do callback de logout.
 
 import streamlit as st
 from supabase import create_client, Client
@@ -20,17 +21,14 @@ def sign_up(email, password):
     """Realiza o cadastro de um novo usuário com mensagens de feedback claras."""
     try:
         res = supabase.auth.sign_up({"email": email, "password": password})
-        mensagem = "✅ Cadastro realizado! Verifique seu e-mail para confirmar a conta."
-        return True, mensagem
+        return True, "✅ Cadastro realizado! Verifique seu e-mail para confirmar a conta."
     except AuthApiError as e:
         if "User already registered" in str(e):
-            mensagem = "⚠️ Este e-mail já está cadastrado. Por favor, tente fazer o login."
+            return False, "⚠️ Este e-mail já está cadastrado. Por favor, tente fazer o login."
         else:
-            mensagem = f"❌ Erro no cadastro. Tente novamente."
-        return False, mensagem
+            return False, "❌ Erro no cadastro. Tente novamente."
     except Exception:
-        mensagem = f"❌ Não foi possível conectar aos nossos servidores. Tente novamente mais tarde."
-        return False, mensagem
+        return False, "❌ Não foi possível conectar aos nossos servidores. Tente novamente mais tarde."
 
 def sign_in(email, password):
     """Realiza o login de um usuário com mensagens de erro humanizadas."""
@@ -44,13 +42,12 @@ def sign_in(email, password):
         else:
             return False, "❌ Ocorreu um problema ao tentar fazer login. Tente novamente."
     except Exception:
-        return False, "❌ Não foi possível conectar ao servidor. Verifique sua conexão com a internet."
+        return False, "❌ Não foi possível conectar ao servidor. Verifique sua conexão."
 
 def sign_out():
-    """Realiza o logout do usuário e limpa a sessão."""
+    """Apenas realiza o logout técnico, sem chamar st.rerun()."""
     try:
         supabase.auth.sign_out()
         st.session_state.user_session = None
-        st.rerun()
     except Exception as e:
         st.error(f"Erro ao fazer logout: {e}")
