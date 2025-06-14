@@ -15,11 +15,14 @@ supabase: Client = init_supabase_client()
 # --- FUNÇÕES DE AUTENTICAÇÃO ---
 
 def get_google_auth_url(redirect_url: str):
-    """Gera a URL de autenticação do Google."""
+    """Gera a URL de autenticação do Google, forçando o fluxo implícito."""
     try:
         data = supabase.auth.sign_in_with_oauth({
             "provider": "google",
-            "options": {"redirect_to": redirect_url}
+            "options": {
+                "redirect_to": redirect_url,
+                "flow_type": "implicit"  # <-- A CORREÇÃO CRÍTICA ESTÁ AQUI
+            }
         })
         return data.url
     except Exception as e:
@@ -29,11 +32,9 @@ def get_google_auth_url(redirect_url: str):
 def exchange_code_for_session(auth_code: str):
     """Troca o código de autorização do Google por uma sessão de usuário."""
     try:
-        # Este método troca o código por uma sessão completa
         session_data = supabase.auth.exchange_code_for_session({
             "auth_code": auth_code,
         })
-        # Armazena a sessão no estado do Streamlit
         st.session_state.user_session = session_data.session
         return True
     except Exception as e:
