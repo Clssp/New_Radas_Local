@@ -289,10 +289,23 @@ def auth_page():
                 else: 
                     st.error(m)
 
-# --- ROTEAMENTO ---
+
+# --- ATUALIZAÇÃO: ROTEAMENTO INTELIGENTE ---
+
+# 1. Primeiro, inicializamos a sessão se ela não existir.
 if 'user_session' not in st.session_state: 
     st.session_state['user_session'] = None
 
+# 2. Se a sessão estiver vazia, tentamos processar um possível login OAuth.
+if st.session_state.user_session is None:
+    # A importação deve ser aqui para garantir que a função exista
+    from auth_utils import process_oauth_login 
+    
+    # Se o process_oauth_login retornar True, significa que encontramos uma nova sessão.
+    if process_oauth_login():
+        st.rerun() # Força o recarregamento da página.
+
+# 3. Agora, fazemos a verificação final para decidir qual página mostrar.
 if st.session_state.user_session is None: 
     auth_page()
 else: 
