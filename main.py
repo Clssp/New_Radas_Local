@@ -1,5 +1,5 @@
-# main.py - v9.5 (Completo com Integração Supabase Storage)
-# Arquitetura definitiva para armazenamento e download de relatórios.
+# main.py - v9.6 (Completo com Correção de Lógica)
+# Corrige o NameError movendo a geração de HTML/PDF para depois da definição de dados_html.
 # ==============================================================================
 
 import streamlit as st
@@ -265,10 +265,52 @@ def main_app():
         
         placeholder_formulario.empty()
         
-        # ... (lógica da barra de progresso e coleta de dados permanece a mesma) ...
         progress_bar = st.progress(0, text="Mapeando o cenário...")
-        # ...
+        resultados_google = buscar_concorrentes(profissao, localizacao)
+        if not resultados_google:
+            st.error("Nenhum concorrente encontrado. Tente uma busca mais específica."); st.stop()
         
+        progress_bar.progress(0.15, text="Mapa competitivo criado! ✅"); time.sleep(1)
+
+        concorrentes, comentarios, dados_ia = [], [], []
+        locais_a_processar = resultados_google[:5]
+        
+        for i, lugar in enumerate(locais_a_processar):
+            if not (pid := lugar.get("place_id")): continue
+            progresso_atual = 0.15 + (((i + 1) / len(locais_a_processar)) * 0.40)
+            progress_bar.progress(progresso_atual, text=f"Coletando inteligência de '{lugar.get('name', 'um concorrente')}'...")
+            detalhes = buscar_detalhes_lugar(pid)
+            foto_ref = detalhes.get('photos', [{}])[0].get('photo_reference')
+            foto_url = f"https://maps.googleapis.com/maps/api/place/photo?maxwidth=400&photoreference={foto_ref}&key={API_KEY_GOOGLE}" if foto_ref else ""
+            foto_base64 = url_para_base64(foto_url)
+            niveis_preco = {1: "$ (Barato)", 2: "$$ (Moderado)", 3: "$$$ (Caro)", 4: "$$$$ (Muito Caro)"}
+            nivel_preco_int = detalhes.get("price_level")
+            nivel_preco_str = niveis_preco.get(nivel_preco_int, "N/A")
+            horarios = detalhes.get('opening_hours', {}).get('weekday_text', ['Horário não informado'])
+            reviews = [r.get("text", "") for r in detalhes.get("reviews", []) if r.get("text")]
+            comentarios.extend(reviews)
+            concorrentes.append({"nome": detalhes.get("name"), "nota": detalhes.get("rating"), "total_avaliacoes": detalhes.get("user_ratings_total"), "site": detalhes.get("website"), "foto_base64": foto_base64, "nivel_preco": nivel_preco_int, "nivel_preco_str": nivel_preco_str, "horarios": horarios, "dossie_ia": {}})
+            dados_ia.append({"nome_concorrente": detalhes.get("name"), "comentarios": " ".join(reviews[:5])})
+
+        progress_bar.progress(0.55, text="Nossa IA está decodificando a voz dos seus clientes...")
+        sentimentos = analisar_sentimentos_por_topico_ia("\n".join(comentarios[:20]))
+        progress_bar.progress(0.70, text="A IA Radar Local está gerando insights estratégicos...")
+        insights_ia = enriquecer_com_ia(sentimentos, "\n".join(comentarios[:50]))
+        progress_bar.progress(0.85, text="Cruzando dados para encontrar oportunidades únicas...")
+        dossies = gerar_dossies_em_lote_ia(dados_ia)
+        matriz = classificar_concorrentes_matriz(concorrentes)
+        progress_bar.progress(0.90, text="Análise estratégica concluída! ✅"); time.sleep(1)
+        progress_bar.progress(0.95, text="Compilando seu Dossiê de Inteligência Estratégica...")
+        
+        dossies_map = {d.get('nome_concorrente'): d for d in dossies}
+        for c in concorrentes: c['dossie_ia'] = dossies_map.get(c['nome'], {})
+        
+        grafico_radar = gerar_grafico_radar_base64(sentimentos)
+        
+        # O dicionário dados_html é criado aqui, antes de ser usado.
+        dados_html = {"base64_logo": base64_logo, "titulo": insights_ia["titulo"], "slogan": insights_ia["slogan"], "concorrentes": concorrentes, "sugestoes_estrategicas": insights_ia["sugestoes"], "alerta_nicho": insights_ia["alerta"], "grafico_radar_b64": grafico_radar, "matriz_posicionamento": matriz, "horario_pico_inferido": insights_ia["horario_pico"]}
+        
+        # Agora as chamadas são feitas na ordem correta.
         html_relatorio = gerar_html_relatorio(**dados_html)
         pdf_bytes = gerar_pdf(html_relatorio)
         
