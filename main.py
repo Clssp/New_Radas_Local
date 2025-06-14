@@ -1,4 +1,4 @@
-# main.py - v6.3 (Experiência de Cadastro Completa e Integrada)
+# main.py - v6.5 (Final com Login Google Funcional)
 # ========================================================================
 
 import streamlit as st
@@ -28,12 +28,11 @@ except (KeyError, FileNotFoundError):
     st.error("As chaves de API não foram encontradas. Verifique a localização e o conteúdo do seu arquivo `.streamlit/secrets.toml`.")
     st.stop()
 
-# Importa as funções de autenticação do nosso arquivo de lógica
-from auth_utils import sign_up, sign_in, sign_out, supabase
+# ATUALIZAÇÃO: Importa a nova função 'get_google_auth_url'
+from auth_utils import sign_up, sign_in, sign_out, supabase, get_google_auth_url
 
 # ==============================================================================
 # --- DEFINIÇÃO DE TODAS AS FUNÇÕES AUXILIARES ---
-# (As funções de análise, PDF, etc., permanecem as mesmas)
 # ==============================================================================
 
 def url_para_base64(url):
@@ -167,12 +166,10 @@ def gerar_html_relatorio(**kwargs):
 def gerar_pdf(html):
     pdf_bytes = BytesIO(); pisa.CreatePDF(html.encode('utf-8'), dest=pdf_bytes); return pdf_bytes.getvalue()
 
-# --- FUNÇÃO PRINCIPAL DA APLICAÇÃO (UI) ---
 def main_app():
     st.sidebar.write(f"Logado como: **{st.session_state.user_session.user.email}**"); st.sidebar.button("Logout", on_click=sign_out, use_container_width=True); st.sidebar.markdown("---")
     base64_logo = carregar_logo_base64("logo_radar_local.png")
     st.markdown(f"<div style='text-align: center;'><img src='data:image/png;base64,{base64_logo}' width='120'><h1>Radar Local</h1><p>Inteligência de Mercado para Autônomos e Pequenos Negócios</p></div>", unsafe_allow_html=True); st.markdown("---")
-
     placeholder_formulario = st.empty()
     with placeholder_formulario.container():
         with st.form("formulario_principal"):
@@ -186,37 +183,28 @@ def main_app():
         placeholder_formulario.empty()
         if not all([profissao, localizacao, nome_usuario]): 
             st.warning("⚠️ Preencha todos os campos."); st.stop()
-
         col1, col2 = st.columns([0.1, 0.9], gap="small")
         progress_bar = col2.progress(0, text="Conectando aos nossos sistemas...")
-        
         with col1:
             st.spinner("")
             time.sleep(1)
             progress_bar.progress(0.01, text="Mapeando o cenário competitivo na sua região...")
             resultados_google = buscar_concorrentes(profissao, localizacao)
-            
             if not resultados_google: 
                 col1.empty(); col2.empty()
                 st.error("Nenhum concorrente encontrado. Tente uma busca mais específica."); st.stop()
-            
             progress_bar.progress(0.15, text="Mapa competitivo criado! ✅"); time.sleep(1.5)
-
             concorrentes, comentarios, dados_ia = [], [], []
             locais_a_processar = resultados_google[:5]
             etapa2_inicio, etapa2_peso = 0.15, 0.35
-
             for i, lugar in enumerate(locais_a_processar):
                 if not (pid := lugar.get("place_id")): continue
                 detalhes = buscar_detalhes_lugar(pid)
-                
                 progresso_atual = etapa2_inicio + (((i + 1) / len(locais_a_processar)) * etapa2_peso)
                 progress_bar.progress(progresso_atual, text=f"Coletando inteligência de '{detalhes.get('name', 'um concorrente')}'...")
-
                 foto_ref = detalhes.get('photos', [{}])[0].get('photo_reference')
                 foto_url = f"https://maps.googleapis.com/maps/api/place/photo?maxwidth=400&photoreference={foto_ref}&key={API_KEY_GOOGLE}" if foto_ref else ""
                 foto_base64 = url_para_base64(foto_url)
-
                 niveis_preco = {1: "$ (Barato)", 2: "$$ (Moderado)", 3: "$$$ (Caro)", 4: "$$$$ (Muito Caro)"}
                 nivel_preco_int = detalhes.get("price_level")
                 nivel_preco_str = niveis_preco.get(nivel_preco_int, "N/A")
@@ -226,34 +214,24 @@ def main_app():
                 concorrentes.append({"nome": detalhes.get("name"), "nota": detalhes.get("rating"), "total_avaliacoes": detalhes.get("user_ratings_total"), "site": detalhes.get("website"), "foto_base64": foto_base64, "nivel_preco": nivel_preco_int, "nivel_preco_str": nivel_preco_str, "horarios": horarios, "dossie_ia": {}})
                 dados_ia.append({"nome_concorrente": detalhes.get("name"), "comentarios": " ".join(reviews[:5])})
                 time.sleep(0.3)
-            
             progress_bar.progress(0.55, text="Nossa IA está decodificando a voz dos seus clientes...")
             sentimentos = analisar_sentimentos_por_topico_ia("\n".join(comentarios[:20]))
-            
             progress_bar.progress(0.70, text="A IA Radar Local está gerando insights estratégicos...")
             insights_ia = enriquecer_com_ia(sentimentos, "\n".join(comentarios[:50]))
-            
             progress_bar.progress(0.85, text="Cruzando dados para encontrar oportunidades únicas...")
             dossies = gerar_dossies_em_lote_ia(dados_ia)
             matriz = classificar_concorrentes_matriz(concorrentes)
-            
             progress_bar.progress(0.90, text="Análise estratégica concluída! ✅"); time.sleep(1.5)
-            
             progress_bar.progress(0.95, text="Compilando seu Dossiê de Inteligência Estratégica...")
-            
             dossies_map = {d.get('nome_concorrente'): d for d in dossies}
             for c in concorrentes: c['dossie_ia'] = dossies_map.get(c['nome'], {})
-            
             grafico_radar = gerar_grafico_radar_base64(sentimentos)
             dados_html = {"base64_logo": base64_logo, "titulo": insights_ia["titulo"], "slogan": insights_ia["slogan"], "concorrentes": concorrentes, "sugestoes_estrategicas": insights_ia["sugestoes"], "alerta_nicho": insights_ia["alerta"], "grafico_radar_b64": grafico_radar, "matriz_posicionamento": matriz, "horario_pico_inferido": insights_ia["horario_pico"]}
             html_relatorio = gerar_html_relatorio(**dados_html)
             pdf_bytes = gerar_pdf(html_relatorio)
             salvar_historico(nome_usuario, profissao, localizacao, insights_ia["titulo"], insights_ia["slogan"], insights_ia["nivel"], insights_ia["alerta"])
-
             progress_bar.progress(1.0, text="Seu Radar Local está pronto! 🚀"); time.sleep(2)
-        
         col1.empty(); col2.empty()
-
         st.success("✅ Análise concluída!")
         st.subheader(f"📄 Relatório Estratégico para {profissao}")
         st.components.v1.html(html_relatorio, height=600, scrolling=True)
@@ -275,33 +253,21 @@ def main_app():
 def auth_page():
     st.title("Bem-vindo ao Radar Local 📡"); st.write("Faça login ou crie uma conta.")
 
-    # --- LÓGICA DE LOGIN COM GOOGLE CORRIGIDA ---
-    # 1. Defina a URL final do seu app
-    app_url = "https://radarlocalapp.streamlit.app" # Substitua se for diferente
-
-    # 2. Gere a URL de autenticação do Google
+    app_url = "https://radarlocalapp.streamlit.app"
     google_auth_url = get_google_auth_url(app_url)
 
-    # 3. Crie um "botão" usando HTML/CSS e st.markdown
     if google_auth_url:
         button_html = f"""
         <a href="{google_auth_url}" target="_self" style="
-            display: inline-block;
-            padding: 0.5em 1em;
-            background-color: #FF4B4B;
-            color: white;
-            text-decoration: none;
-            border-radius: 0.5rem;
-            font-weight: bold;
-            width: 95%;
-            text-align: center;
+            display: block; padding: 0.75rem 1rem; background-color: #FF4B4B;
+            color: white; text-decoration: none; border-radius: 0.5rem;
+            font-weight: bold; text-align: center; margin-bottom: 1rem;
         ">
             Entrar com Google
         </a>
         """
         st.markdown(button_html, unsafe_allow_html=True)
-    # --- FIM DA LÓGICA CORRIGIDA ---
-
+    
     st.markdown("<p style='text-align: center;'>ou</p>", unsafe_allow_html=True)
     login_tab, signup_tab = st.tabs(["Login", "Cadastro"])
     with login_tab:
