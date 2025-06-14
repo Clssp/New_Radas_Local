@@ -1,5 +1,5 @@
-# main.py - v9.8 (Completo com Correção de RLS)
-# Refatora salvar_historico para ser autossuficiente e resolver o erro de Row Level Security.
+# main.py - v9.10 (Sintaxe Corrigida)
+# Código funcional da v9.9 com comentários e formatação corrigidos.
 # ==============================================================================
 
 import streamlit as st
@@ -39,7 +39,7 @@ except (KeyError, FileNotFoundError):
     st.error("As chaves de API não foram encontradas. Verifique seu arquivo `.streamlit/secrets.toml`."); st.stop()
 
 
-# --- FUNÇÕES DE BANCO DE DADOS ATUALIZADAS ---
+# --- FUNÇÕES DE BANCO DE DADOS ---
 def salvar_historico(nome, prof, loc, titulo, slogan, nivel, alerta, storage_path):
     """Salva o histórico no Supabase, obtendo o user_id da sessão ativa."""
     try:
@@ -131,15 +131,24 @@ def classificar_concorrentes_matriz(concorrentes):
     return matriz
 
 def gerar_grafico_radar_base64(sentimentos):
+    """Gera o gráfico radar, validando os dados para garantir que sejam numéricos."""
     if not sentimentos: return ""
+
+    # Garante que todos os valores são numéricos, substituindo por 0 se não forem.
+    for key, value in sentimentos.items():
+        if not isinstance(value, (int, float)):
+            sentimentos[key] = 0.0
+
     labels, stats = list(sentimentos.keys()), list(sentimentos.values())
     angles = np.linspace(0, 2 * np.pi, len(labels), endpoint=False).tolist()
     stats += stats[:1]; angles += angles[:1]
+
     fig, ax = plt.subplots(figsize=(6, 6), subplot_kw=dict(polar=True))
     ax.fill(angles, stats, color='#007bff', alpha=0.25); ax.plot(angles, stats, color='#007bff', linewidth=2)
     ax.set_ylim(0, 10); ax.set_yticklabels([])
     ax.set_thetagrids(np.degrees(angles[:-1]), labels, fontsize=12)
     ax.set_title("Diagnóstico de Sentimentos por Tópico", fontsize=16, y=1.1)
+    
     buf = BytesIO(); plt.savefig(buf, format="png", bbox_inches='tight'); plt.close(fig)
     return base64.b64encode(buf.getvalue()).decode("utf-8")
 
@@ -315,6 +324,7 @@ def main_app():
         for c in concorrentes: c['dossie_ia'] = dossies_map.get(c['nome'], {})
         
         grafico_radar = gerar_grafico_radar_base64(sentimentos)
+        
         dados_html = {"base64_logo": base64_logo, "titulo": insights_ia["titulo"], "slogan": insights_ia["slogan"], "concorrentes": concorrentes, "sugestoes_estrategicas": insights_ia["sugestoes"], "alerta_nicho": insights_ia["alerta"], "grafico_radar_b64": grafico_radar, "matriz_posicionamento": matriz, "horario_pico_inferido": insights_ia["horario_pico"]}
         
         html_relatorio = gerar_html_relatorio(**dados_html)
