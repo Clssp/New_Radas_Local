@@ -250,44 +250,44 @@ def main_app():
         else: st.info("Histórico de consultas vazio.")
 
     # --- ATUALIZAÇÃO FINAL: TELA DE LOGIN/CADASTRO ---
+
+# main.py
+
+# ... (outras funções) ...
+
 def auth_page():
     st.title("Bem-vindo ao Radar Local 📡"); st.write("Faça login ou crie uma conta.")
 
-    # --- LÓGICA DE LOGIN COM GOOGLE SIMPLIFICADA E CORRIGIDA ---
-    app_url = "https://radarlocalapp.streamlit.app"  # Substitua se for diferente
+    app_url = "https://radarlocalapp.streamlit.app"
     google_auth_url = get_google_auth_url(app_url)
 
     if google_auth_url:
-        # Usamos o componente nativo do Streamlit, que é mais seguro
         st.link_button("Entrar com Google", google_auth_url, use_container_width=True, type="primary")
 
     st.markdown("<p style='text-align: center;'>ou</p>", unsafe_allow_html=True)
     login_tab, signup_tab = st.tabs(["Login", "Cadastro"])
+    
     with login_tab:
         with st.form("login_form", border=False):
-            email, pwd = st.text_input("Email"), st.text_input("Senha", type="password")
+            email = st.text_input("Email")
+            pwd = st.text_input("Senha", type="password")
             if st.form_submit_button("Entrar"):
                 s, m = sign_in(email, pwd)
                 if s: 
                     st.rerun()
                 else: 
                     st.error(m)
+    
     with signup_tab:
-        with st.form("signup_form", border=False):
-            email, pwd = st.text_input("Email", key="signup_email"), st.text_input("Crie uma senha", type="password", key="signup_pwd")
+        with st.form("signup_form", border=False): # <- Garante que só há um deste
+            email_signup = st.text_input("Email", key="signup_email")
+            pwd_signup = st.text_input("Crie uma senha", type="password", key="signup_pwd")
             if st.form_submit_button("Registrar"):
-                s, m = sign_up(email, pwd)
+                s, m = sign_up(email_signup, pwd_signup)
                 if s: 
                     st.success(m)
                 else: 
                     st.error(m)
-    with signup_tab:
-        with st.form("signup_form", border=False):
-            email, pwd = st.text_input("Email", key="signup_email"), st.text_input("Crie uma senha", type="password", key="signup_pwd")
-            if st.form_submit_button("Registrar"):
-                s, m = sign_up(email, pwd)
-                if s: st.success(m)
-                else: st.error(m)
 
 # --- ROTEAMENTO ---
 if 'user_session' not in st.session_state: 
