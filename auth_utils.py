@@ -26,14 +26,15 @@ def get_google_auth_url(redirect_url: str):
         st.error(f"Não foi possível gerar a URL de login: {e}")
         return None
 
-# --- NOVA FUNÇÃO CRÍTICA PARA O FLUXO OAUTH ---
 def exchange_code_for_session(auth_code: str):
     """Troca o código de autorização do Google por uma sessão de usuário."""
     try:
-        session = supabase.auth.exchange_code_for_session({
+        # Este método troca o código por uma sessão completa
+        session_data = supabase.auth.exchange_code_for_session({
             "auth_code": auth_code,
         })
-        st.session_state.user_session = session.session
+        # Armazena a sessão no estado do Streamlit
+        st.session_state.user_session = session_data.session
         return True
     except Exception as e:
         st.error(f"Falha na autenticação final: {e}")

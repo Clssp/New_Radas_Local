@@ -1,4 +1,4 @@
-# main.py - v7.0 (Arquitetura de Autenticação Final)
+# main.py - v7.1 (Arquitetura de Autenticação Final - Indentação Corrigida)
 # ========================================================================
 
 import streamlit as st
@@ -25,7 +25,6 @@ except (KeyError, FileNotFoundError):
 from auth_utils import sign_up, sign_in, sign_out, supabase, get_google_auth_url, exchange_code_for_session
 
 # --- DEFINIÇÃO DE TODAS AS FUNÇÕES AUXILIARES ---
-# (O código das suas 10+ funções auxiliares permanece aqui, inalterado)
 def url_para_base64(url):
     if not url: return ""
     try:
@@ -157,17 +156,104 @@ def gerar_html_relatorio(**kwargs):
 def gerar_pdf(html):
     pdf_bytes = BytesIO(); pisa.CreatePDF(html.encode('utf-8'), dest=pdf_bytes); return pdf_bytes.getvalue()
 
-# ... (main_app e seu conteúdo permanecem os mesmos)
+# --- FUNÇÃO PRINCIPAL DA APLICAÇÃO (UI) ---
 def main_app():
-    # ...
-    
+    st.sidebar.write(f"Logado como: **{st.session_state.user_session.user.email}**"); st.sidebar.button("Logout", on_click=sign_out, use_container_width=True); st.sidebar.markdown("---")
+    base64_logo = carregar_logo_base64("logo_radar_local.png")
+    st.markdown(f"<div style='text-align: center;'><img src='data:image/png;base64,{base64_logo}' width='120'><h1>Radar Local</h1><p>Inteligência de Mercado para Autônomos e Pequenos Negócios</p></div>", unsafe_allow_html=True); st.markdown("---")
+
+    placeholder_formulario = st.empty()
+    with placeholder_formulario.container():
+        with st.form("formulario_principal"):
+            st.subheader("🚀 Comece sua Análise Premium"); c1, c2, c3 = st.columns(3)
+            with c1: profissao = st.text_input("Profissão/Negócio", placeholder="Barbearia")
+            with c2: localizacao = st.text_input("Cidade/Bairro", placeholder="Mooca, SP")
+            with c3: nome_usuario = st.text_input("Seu Nome (p/ relatório)", value=st.session_state.user_session.user.email.split('@')[0])
+            enviar = st.form_submit_button("🔍 Gerar Análise Completa")
+
+    if enviar:
+        placeholder_formulario.empty()
+        if not all([profissao, localizacao, nome_usuario]): 
+            st.warning("⚠️ Preencha todos os campos."); st.stop()
+
+        col1, col2 = st.columns([0.1, 0.9], gap="small")
+        progress_bar = col2.progress(0, text="Conectando aos nossos sistemas...")
+        with col1:
+            st.spinner("")
+            time.sleep(1)
+            progress_bar.progress(0.01, text="Mapeando o cenário competitivo na sua região...")
+            resultados_google = buscar_concorrentes(profissao, localizacao)
+            if not resultados_google: 
+                col1.empty(); col2.empty()
+                st.error("Nenhum concorrente encontrado. Tente uma busca mais específica."); st.stop()
+            progress_bar.progress(0.15, text="Mapa competitivo criado! ✅"); time.sleep(1.5)
+            concorrentes, comentarios, dados_ia = [], [], []
+            locais_a_processar = resultados_google[:5]
+            etapa2_inicio, etapa2_peso = 0.15, 0.35
+            for i, lugar in enumerate(locais_a_processar):
+                if not (pid := lugar.get("place_id")): continue
+                detalhes = buscar_detalhes_lugar(pid)
+                progresso_atual = etapa2_inicio + (((i + 1) / len(locais_a_processar)) * etapa2_peso)
+                progress_bar.progress(progresso_atual, text=f"Coletando inteligência de '{detalhes.get('name', 'um concorrente')}'...")
+                foto_ref = detalhes.get('photos', [{}])[0].get('photo_reference')
+                foto_url = f"https://maps.googleapis.com/maps/api/place/photo?maxwidth=400&photoreference={foto_ref}&key={API_KEY_GOOGLE}" if foto_ref else ""
+                foto_base64 = url_para_base64(foto_url)
+                niveis_preco = {1: "$ (Barato)", 2: "$$ (Moderado)", 3: "$$$ (Caro)", 4: "$$$$ (Muito Caro)"}
+                nivel_preco_int = detalhes.get("price_level")
+                nivel_preco_str = niveis_preco.get(nivel_preco_int, "N/A")
+                horarios = detalhes.get('opening_hours', {}).get('weekday_text', ['Horário não informado'])
+                reviews = [r.get("text", "") for r in detalhes.get("reviews", []) if r.get("text")]
+                comentarios.extend(reviews)
+                concorrentes.append({"nome": detalhes.get("name"), "nota": detalhes.get("rating"), "total_avaliacoes": detalhes.get("user_ratings_total"), "site": detalhes.get("website"), "foto_base64": foto_base64, "nivel_preco": nivel_preco_int, "nivel_preco_str": nivel_preco_str, "horarios": horarios, "dossie_ia": {}})
+                dados_ia.append({"nome_concorrente": detalhes.get("name"), "comentarios": " ".join(reviews[:5])})
+                time.sleep(0.3)
+            progress_bar.progress(0.55, text="Nossa IA está decodificando a voz dos seus clientes...")
+            sentimentos = analisar_sentimentos_por_topico_ia("\n".join(comentarios[:20]))
+            progress_bar.progress(0.70, text="A IA Radar Local está gerando insights estratégicos...")
+            insights_ia = enriquecer_com_ia(sentimentos, "\n".join(comentarios[:50]))
+            progress_bar.progress(0.85, text="Cruzando dados para encontrar oportunidades únicas...")
+            dossies = gerar_dossies_em_lote_ia(dados_ia)
+            matriz = classificar_concorrentes_matriz(concorrentes)
+            progress_bar.progress(0.90, text="Análise estratégica concluída! ✅"); time.sleep(1.5)
+            progress_bar.progress(0.95, text="Compilando seu Dossiê de Inteligência Estratégica...")
+            dossies_map = {d.get('nome_concorrente'): d for d in dossies}
+            for c in concorrentes: c['dossie_ia'] = dossies_map.get(c['nome'], {})
+            grafico_radar = gerar_grafico_radar_base64(sentimentos)
+            dados_html = {"base64_logo": base64_logo, "titulo": insights_ia["titulo"], "slogan": insights_ia["slogan"], "concorrentes": concorrentes, "sugestoes_estrategicas": insights_ia["sugestoes"], "alerta_nicho": insights_ia["alerta"], "grafico_radar_b64": grafico_radar, "matriz_posicionamento": matriz, "horario_pico_inferido": insights_ia["horario_pico"]}
+            html_relatorio = gerar_html_relatorio(**dados_html)
+            pdf_bytes = gerar_pdf(html_relatorio)
+            salvar_historico(nome_usuario, profissao, localizacao, insights_ia["titulo"], insights_ia["slogan"], insights_ia["nivel"], insights_ia["alerta"])
+            progress_bar.progress(1.0, text="Seu Radar Local está pronto! 🚀"); time.sleep(2)
+        
+        col1.empty(); col2.empty()
+
+        st.success("✅ Análise concluída!")
+        st.subheader(f"📄 Relatório Estratégico para {profissao}")
+        st.components.v1.html(html_relatorio, height=600, scrolling=True)
+        if pdf_bytes: st.download_button("⬇️ Baixar Relatório", pdf_bytes, f"relatorio_{profissao}.pdf", "application/pdf")
+
+    st.markdown("---")
+    if check_password():
+        st.sidebar.success("✅ Acesso admin concedido!")
+        st.subheader("📊 Painel de Administrador")
+        df = carregar_historico_db()
+        if not df.empty:
+            st.markdown("#### Análise Rápida"); c1, c2 = st.columns(2)
+            with c1: st.write("**Negócios + Pesquisados:**"); st.bar_chart(df['tipo_negocio_pesquisado'].value_counts())
+            with c2: st.write("**Localizações + Pesquisadas:**"); st.bar_chart(df['localizacao_pesquisada'].value_counts())
+            with st.expander("Ver Histórico Completo"): st.dataframe(df)
+        else: st.info("Histórico de consultas vazio.")
+
 # --- TELA DE LOGIN/CADASTRO ---
 def auth_page():
     st.title("Bem-vindo ao Radar Local 📡"); st.write("Faça login ou crie uma conta.")
+
     app_url = "https://radarlocalapp.streamlit.app"
     google_auth_url = get_google_auth_url(app_url)
+
     if google_auth_url:
         st.link_button("Entrar com Google", google_auth_url, use_container_width=True, type="primary")
+    
     st.markdown("<p style='text-align: center;'>ou</p>", unsafe_allow_html=True)
     login_tab, signup_tab = st.tabs(["Login", "Cadastro"])
     with login_tab:
@@ -176,16 +262,20 @@ def auth_page():
             pwd = st.text_input("Senha", type="password")
             if st.form_submit_button("Entrar"):
                 s, m = sign_in(email, pwd)
-                if s: st.rerun()
-                else: st.error(m)
+                if s: 
+                    st.rerun()
+                else: 
+                    st.error(m)
     with signup_tab:
         with st.form("signup_form", border=False):
             email_signup = st.text_input("Email", key="signup_email")
             pwd_signup = st.text_input("Crie uma senha", type="password", key="signup_pwd")
             if st.form_submit_button("Registrar"):
                 s, m = sign_up(email_signup, pwd_signup)
-                if s: st.success(m)
-                else: st.error(m)
+                if s: 
+                    st.success(m)
+                else: 
+                    st.error(m)
 
 
 # --- ROTEAMENTO FINAL E ROBUSTO ---
@@ -194,31 +284,30 @@ if 'user_session' not in st.session_state:
     st.session_state.user_session = None
 
 query_params = st.query_params
-auth_code = query_params.get("code")
+if "code" in query_params:
+    auth_code = query_params["code"][0]
+    if auth_code and st.session_state.user_session is None:
+        exchange_code_for_session(auth_code)
+        # Redireciona para a URL limpa usando JavaScript
+        st.components.v1.html(
+            f"""
+            <script>
+                window.location.href = "https://radarlocalapp.streamlit.app";
+            </script>
+            """,
+            height=0
+        )
+        st.stop()
 
-# Se houver um código de autorização na URL, processe-o
-if auth_code and st.session_state.user_session is None:
-    exchange_code_for_session(auth_code)
-    # Limpa a URL e recarrega a página de forma segura
-    st.components.v1.html(
-        f"""
-        <script>
-            window.location.href = "{st.secrets.supabase.url.replace('.supabase.co', '.streamlit.app') if 'supabase' in st.secrets else 'https://radarlocalapp.streamlit.app'}";
-        </script>
-        """
-    )
-    st.stop()
-
-# Verificação final para decidir qual página mostrar
+# Tenta obter a sessão novamente caso a página tenha sido apenas recarregada
 if st.session_state.user_session is None:
-    # Tenta obter a sessão novamente caso a página tenha sido apenas recarregada
     try:
         st.session_state.user_session = supabase.auth.get_session()
     except Exception:
-        pass # Ignora erros se a API ainda não estiver pronta
+        pass
 
 # Roteamento final
-if st.session_state.user_session is None:
-    auth_page()
-else:
+if st.session_state.user_session:
     main_app()
+else:
+    auth_page()
