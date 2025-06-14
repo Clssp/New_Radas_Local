@@ -1,5 +1,5 @@
-# main.py - v9.7 (Completo com Correções de UX e Logout)
-# Corrige a atualização do histórico e o fluxo de logout.
+# main.py - v9.8 (Completo com Correção de RLS)
+# Refatora salvar_historico para ser autossuficiente e resolver o erro de Row Level Security.
 # ==============================================================================
 
 import streamlit as st
@@ -40,18 +40,25 @@ except (KeyError, FileNotFoundError):
 
 
 # --- FUNÇÕES DE BANCO DE DADOS ATUALIZADAS ---
-def salvar_historico(user_id, nome, prof, loc, titulo, slogan, nivel, alerta, storage_path):
+def salvar_historico(nome, prof, loc, titulo, slogan, nivel, alerta, storage_path):
+    """Salva o histórico no Supabase, obtendo o user_id da sessão ativa."""
     try:
-        dados_para_inserir = {
-            "user_id": user_id, "nome_usuario": nome, "tipo_negocio_pesquisado": prof, 
-            "localizacao_pesquisada": loc, "nivel_concorrencia_ia": nivel, 
-            "titulo_gerado_ia": titulo, "slogan_gerado_ia": slogan, 
-            "alerta_oportunidade_ia": alerta, "data_consulta": datetime.now().isoformat(),
-            "pdf_storage_path": storage_path
-        }
-        supabase.table("consultas").insert(dados_para_inserir).execute()
-    except APIError as e: st.warning(f"Não foi possível salvar o histórico: {e.message}")
-    except Exception as e: st.warning(f"Ocorreu um erro inesperado ao salvar histórico: {e}")
+        if 'user_session' in st.session_state and st.session_state.user_session:
+            user_id = st.session_state.user_session.user.id
+            dados_para_inserir = {
+                "user_id": user_id, "nome_usuario": nome, "tipo_negocio_pesquisado": prof, 
+                "localizacao_pesquisada": loc, "nivel_concorrencia_ia": nivel, 
+                "titulo_gerado_ia": titulo, "slogan_gerado_ia": slogan, 
+                "alerta_oportunidade_ia": alerta, "data_consulta": datetime.now().isoformat(),
+                "pdf_storage_path": storage_path
+            }
+            supabase.table("consultas").insert(dados_para_inserir).execute()
+        else:
+            st.warning("Sessão de usuário inválida. Não foi possível salvar o histórico.")
+    except APIError as e:
+        st.warning(f"Não foi possível salvar o histórico: {e.message}")
+    except Exception as e:
+        st.warning(f"Ocorreu um erro inesperado ao salvar histórico: {e}")
 
 def carregar_historico_db():
     try:
@@ -218,11 +225,8 @@ def auth_page():
 # --- APLICAÇÃO PRINCIPAL ---
 def main_app():
     st.sidebar.write(f"Logado como: **{st.session_state.user_session.user.email}**")
-    
-    # --- FLUXO DE LOGOUT CORRIGIDO ---
     if st.sidebar.button("Sair (Logout)", use_container_width=True):
-        sign_out()
-        st.rerun()
+        sign_out(); st.rerun()
 
     st.sidebar.markdown("---")
     
@@ -311,7 +315,6 @@ def main_app():
         for c in concorrentes: c['dossie_ia'] = dossies_map.get(c['nome'], {})
         
         grafico_radar = gerar_grafico_radar_base64(sentimentos)
-        
         dados_html = {"base64_logo": base64_logo, "titulo": insights_ia["titulo"], "slogan": insights_ia["slogan"], "concorrentes": concorrentes, "sugestoes_estrategicas": insights_ia["sugestoes"], "alerta_nicho": insights_ia["alerta"], "grafico_radar_b64": grafico_radar, "matriz_posicionamento": matriz, "horario_pico_inferido": insights_ia["horario_pico"]}
         
         html_relatorio = gerar_html_relatorio(**dados_html)
@@ -319,14 +322,11 @@ def main_app():
         
         if html_relatorio and pdf_bytes:
             progress_bar.progress(0.98, text="Salvando seu relatório na nuvem...")
-            user_id = st.session_state.user_session.user.id
-            timestamp = int(time.time())
-            file_name = f"relatorio_{profissao.replace(' ', '_')}_{timestamp}.pdf"
-            storage_path = f"{user_id}/{file_name}"
             
             try:
+                storage_path = f"{st.session_state.user_session.user.id}/relatorio_{profissao.replace(' ', '_')}_{int(time.time())}.pdf"
                 supabase.storage.from_("relatorios").upload(path=storage_path, file=pdf_bytes, file_options={"content-type": "application/pdf"})
-                salvar_historico(user_id, nome_usuario, profissao, localizacao, insights_ia["titulo"], insights_ia["slogan"], insights_ia["nivel"], insights_ia["alerta"], storage_path)
+                salvar_historico(nome_usuario, profissao, localizacao, insights_ia["titulo"], insights_ia["slogan"], insights_ia["nivel"], insights_ia["alerta"], storage_path)
             except Exception as e:
                 st.error(f"Ocorreu um erro ao salvar seu relatório: {e}"); st.stop()
             
