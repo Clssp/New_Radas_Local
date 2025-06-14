@@ -26,16 +26,18 @@ def get_google_auth_url(redirect_url: str):
         st.error(f"Não foi possível gerar a URL de login: {e}")
         return None
 
-def process_oauth_login():
-    """Tenta obter a sessão do usuário após o redirecionamento do OAuth."""
+# --- NOVA FUNÇÃO CRÍTICA PARA O FLUXO OAUTH ---
+def exchange_code_for_session(auth_code: str):
+    """Troca o código de autorização do Google por uma sessão de usuário."""
     try:
-        session = supabase.auth.get_session()
-        if session and session.user:
-            st.session_state.user_session = session
-            return True
-    except Exception:
-        pass
-    return False
+        session = supabase.auth.exchange_code_for_session({
+            "auth_code": auth_code,
+        })
+        st.session_state.user_session = session.session
+        return True
+    except Exception as e:
+        st.error(f"Falha na autenticação final: {e}")
+        return False
 
 def sign_up(email, password):
     """Realiza o cadastro de um novo usuário no Supabase."""
