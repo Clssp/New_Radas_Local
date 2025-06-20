@@ -1,53 +1,41 @@
-# auth_utils.py (v9.2 - Completo e Simplificado)
-# Remove st.rerun() do callback de logout.
-
 import streamlit as st
-from supabase import create_client, Client
-from gotrue.errors import AuthApiError
+# Removemos a importação do create_client
+# Importamos a nossa instância única e compartilhada
+from supabase_client import supabase_client
 
-# --- INICIALIZAÇÃO DO CLIENTE SUPABASE ---
-@st.cache_resource
-def init_supabase_client():
-    """Inicializa e retorna o cliente Supabase de forma segura."""
-    supabase_url = st.secrets["supabase"]["url"]
-    supabase_key = st.secrets["supabase"]["key"]
-    return create_client(supabase_url, supabase_key)
-
-supabase: Client = init_supabase_client()
-
-# --- FUNÇÕES DE AUTENTICAÇÃO COM FEEDBACK MELHORADO ---
-
-def sign_up(email, password):
-    """Realiza o cadastro de um novo usuário com mensagens de feedback claras."""
+def login_user(email, password):
+    """Realiza o login e salva a SESSÃO no st.session_state."""
     try:
-        res = supabase.auth.sign_up({"email": email, "password": password})
-        return True, "✅ Cadastro realizado! Verifique seu e-mail para confirmar a conta."
-    except AuthApiError as e:
-        if "User already registered" in str(e):
-            return False, "⚠️ Este e-mail já está cadastrado. Por favor, tente fazer o login."
-        else:
-            return False, "❌ Erro no cadastro. Tente novamente."
-    except Exception:
-        return False, "❌ Não foi possível conectar aos nossos servidores. Tente novamente mais tarde."
+        # Usa o cliente compartilhado
+        response = supabase_client.auth.sign_in_with_password({
+            "email": email,
+            "password": password
+        })
+        st.session_state.user = response.user.dict()
+        st.session_state.user_session = response.session
+        return st.session_state.user, None
+    except Exception as e:
+        return None, str(e)
 
-def sign_in(email, password):
-    """Realiza o login de um usuário com mensagens de erro humanizadas."""
+def signup_user(email, password):
+    """Cadastra um novo usuário."""
     try:
-        res = supabase.auth.sign_in_with_password({"email": email, "password": password})
-        st.session_state.user_session = res.session
-        return True, None
-    except AuthApiError as e:
-        if "Invalid login credentials" in str(e):
-            return False, "❌ E-mail ou senha incorretos. Por favor, verifique seus dados."
-        else:
-            return False, "❌ Ocorreu um problema ao tentar fazer login. Tente novamente."
-    except Exception:
-        return False, "❌ Não foi possível conectar ao servidor. Verifique sua conexão."
+        # Usa o cliente compartilhado
+        response = supabase_client.auth.sign_up({
+            "email": email,
+            "password": password,
+        })
+        return response.user.dict(), None
+    except Exception as e:
+        return None, str(e)
 
-def sign_out():
-    """Apenas realiza o logout técnico, sem chamar st.rerun()."""
+def logout_user():
+    """Realiza o logout e limpa TODAS as chaves do session_state."""
     try:
-        supabase.auth.sign_out()
-        st.session_state.user_session = None
+        # Usa o cliente compartilhado
+        supabase_client.auth.sign_out()
+        for key in list(st.session_state.keys()):
+            del st.session_state[key]
+        st.success("Logout realizado com sucesso.")
     except Exception as e:
         st.error(f"Erro ao fazer logout: {e}")
