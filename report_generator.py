@@ -1,99 +1,138 @@
 # report_generator.py
+
+import streamlit as st
 import base64
-import json
-import requests
-import numpy as np
-import pandas as pd
-import matplotlib.pyplot as plt
 from io import BytesIO
 from xhtml2pdf import pisa
+import matplotlib.pyplot as plt
+import pandas as pd
+import requests
 from datetime import datetime
 
-def prepare_data_for_pdf(snapshot_data):
+def get_static_map_url(competidores, api_key):
+    if not competidores or not api_key:
+        return ""
+    
+    base_url = "https://maps.googleapis.com/maps/api/staticmap?"
+    params = { "size": "600x400", "maptype": "roadmap", "key": api_key }
+    
+    markers = []
+    for comp in competidores[:10]:
+        lat = comp.get('latitude')
+        lon = comp.get('longitude')
+        if lat and lon:
+            marker_label = comp.get('name', 'C')[0].upper()
+            markers.append(f"color:red|label:{marker_label}|{lat},{lon}")
+    
+    params["markers"] = markers
+    
     try:
-        insights = json.loads(s) if (s := snapshot_data.get('insights_ia')) else {}
-        sentimentos = json.loads(s) if (s := snapshot_data.get('sentimentos_gerais')) else {}
-        concorrentes_raw = json.loads(s) if (s := snapshot_data.get('dados_concorrentes')) else []
-        pdf_data = {
-            "base64_logo": carregar_logo_base64("logo_radar_local.png"),
-            "titulo": insights.get("titulo", "Análise Estratégica"),
-            "slogan": insights.get("slogan", "Insights para o seu sucesso."),
-            "concorrentes": concorrentes_raw,
-            "sugestoes_estrategicas": insights.get("sugestoes", []),
-            "alerta_nicho": insights.get("alerta", ""),
-            "grafico_radar_b64": gerar_grafico_radar_base64(sentimentos),
-            "matriz_posicionamento": classificar_concorrentes_matriz(concorrentes_raw),
-            "horario_pico_inferido": insights.get("horario_pico", "Não foi possível inferir.")
-        }
-        return pdf_data
+        request = requests.Request('GET', base_url, params=params).prepare()
+        return request.url
     except Exception as e:
-        print(f"Erro ao preparar dados para PDF: {e}")
-        return None
-
-def sanitize_value(value):
-    if isinstance(value, list): return ', '.join(map(str, value))
-    if isinstance(value, dict): return json.dumps(value, ensure_ascii=False)
-    if value is None: return ""
-    return str(value)
-
-def classificar_concorrentes_matriz(concorrentes):
-    matriz = {"lideres_premium": [], "custo_beneficio": [], "armadilhas_valor": [], "economicos": []}
-    for c in concorrentes:
-        nota, preco = c.get("nota"), c.get("nivel_preco")
-        if nota is None or preco is None: continue
-        if nota >= 4.0:
-            matriz["lideres_premium" if preco >= 3 else "custo_beneficio"].append(c.get("nome"))
-        else:
-            matriz["armadilhas_valor" if preco >= 3 else "economicos"].append(c.get("nome"))
-    return matriz
-
-def gerar_grafico_radar_base64(sentimentos):
-    if not sentimentos: return ""
-    plt.style.use('seaborn-v0_8-whitegrid')
-    for key, value in sentimentos.items():
-        if not isinstance(value, (int, float)): sentimentos[key] = 0.0
-    labels, stats = list(sentimentos.keys()), list(sentimentos.values())
-    angles = np.linspace(0, 2 * np.pi, len(labels), endpoint=False).tolist()
-    stats += stats[:1]
-    angles += angles[:1]
-    fig, ax = plt.subplots(figsize=(6, 6), subplot_kw=dict(polar=True))
-    ax.fill(angles, stats, color='#005f73', alpha=0.25)
-    ax.plot(angles, stats, color='#005f73', linewidth=2)
-    ax.set_ylim(0, 10)
-    ax.set_yticklabels([])
-    ax.set_thetagrids(np.degrees(angles[:-1]), labels, fontsize=12, color="#34495e")
-    ax.set_title("Diagnóstico de Sentimentos por Tópico", fontsize=16, y=1.1, color="#0a9396")
-    buf = BytesIO()
-    plt.savefig(buf, format="png", bbox_inches='tight', transparent=True)
-    plt.close(fig)
-    return base64.b64encode(buf.getvalue()).decode("utf-8")
-
-def carregar_logo_base64(caminho_logo: str) -> str:
-    try:
-        with open(caminho_logo, "rb") as f:
-            return base64.b64encode(f.read()).decode("utf-8")
-    except FileNotFoundError:
+        print(f"Erro ao criar URL do mapa estático: {e}")
         return ""
 
-def gerar_html_relatorio(**kwargs):
-    CSS = """@import url('https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;700&display=swap'); body { font-family: 'Roboto', sans-serif; color: #34495e; margin: 1.5cm; } h1, h2, h3, h4 { color: #005f73; font-weight: 700; } h1 { font-size: 24pt; margin-bottom: 0; } h2 { font-size: 18pt; border-bottom: 2px solid #0a9396; padding-bottom: 5px; margin-top: 40px; } h3 { font-size: 14pt; border-bottom: 1px solid #e5e7eb; padding-bottom: 3px; margin-top: 25px; color: #0a9396; } .slogan { font-style: italic; color: #6b7280; font-weight: 300; font-size: 14pt; margin-top: 5px; } .section { page-break-inside: avoid; margin-bottom: 30px; } .alert { border: 1px solid #ae2012; background-color: #ffddd2; padding: 15px; margin-top: 20px; border-radius: 5px; color: #ae2012; } .matrix-table { border-collapse: collapse; width: 100%; margin-top: 20px; } .matrix-table th, .matrix-table td { border: 1px solid #e5e7eb; padding: 12px; text-align: left; vertical-align: top; } .matrix-table th { background-color: #f9fafb; font-weight: 700; } .matrix-table ul { padding-left: 20px; margin: 0; } .dossier-card { border: 1px solid #e5e7eb; padding: 15px; margin-top: 20px; page-break-inside: avoid; border-radius: 8px; background-color: #f9fafb; } .dossier-card strong { color: #005f73; font-weight: bold; } .dossier-card p { line-height: 1.6; }"""
-    
-    client_name = kwargs.get("client_name")
-    titulo_principal = sanitize_value(kwargs.get("titulo"))
-    if client_name:
-        titulo_principal = f"Análise de Mercado para {sanitize_value(client_name)}"
-    logo_para_usar = kwargs.get("custom_logo_b64") or kwargs.get("base64_logo", "")
-    
-    matriz = kwargs.get("matriz_posicionamento", {});
-    matriz_html = f"""<table class="matrix-table"><tr><th>🏆 Líderes Premium<br><small>(Qualidade Alta, Preço Alto)</small></th><th>👍 Custo-Benefício<br><small>(Qualidade Alta, Preço Acessível)</small></th></tr><tr><td><ul>{"".join(f"<li>{sanitize_value(n)}</li>" for n in matriz.get("lideres_premium", []))}</ul></td><td><ul>{"".join(f"<li>{sanitize_value(n)}</li>" for n in matriz.get("custo_beneficio", []))}</ul></td></tr><tr><th>💀 Armadilhas de Valor<br><small>(Qualidade Baixa, Preço Alto)</small></th><th>💰 Opções Econômicas<br><small>(Qualidade Baixa, Preço Acessível)</small></th></tr><tr><td><ul>{"".join(f"<li>{sanitize_value(n)}</li>" for n in matriz.get("armadilhas_valor", []))}</ul></td><td><ul>{"".join(f"<li>{sanitize_value(n)}</li>" for n in matriz.get("economicos", []))}</ul></td></tr></table>"""
-    dossie_html = "".join([f"""<div class='dossier-card'><h3>{sanitize_value(c.get('nome'))}</h3><p><strong>Arquétipo:</strong> {sanitize_value(c.get('dossie_ia',{}).get('arquétipo', 'N/A'))}</p><p><strong>Ponto Forte:</strong> {sanitize_value(c.get('dossie_ia',{}).get('ponto_forte','N/A'))}</p><p><strong>Fraqueza Explorável:</strong> {sanitize_value(c.get('dossie_ia', {}).get('fraqueza_exploravel','N/A'))}</p><p><strong>Resumo Estratégico:</strong> {sanitize_value(c.get('dossie_ia',{}).get('resumo_estrategico',''))}</p></div>""" for c in kwargs.get("concorrentes",[])])
-    sugestoes_html = "".join([f"<li>{sanitize_value(s)}</li>" for s in kwargs.get("sugestoes_estrategicas", [])]);
-    alerta_html = f"<div class='section alert'><h3>Alerta de Oportunidade</h3><p>{sanitize_value(kwargs.get('alerta_nicho'))}</p></div>" if kwargs.get('alerta_nicho') else ""
-    
-    body = f"""<html><head><meta charset='utf-8'><style>{CSS}</style></head><body><table width="100%" style="border-bottom: 2px solid #005f73; margin-bottom: 20px;"><tr><td style="vertical-align: middle;"><h1>{titulo_principal}</h1><p class='slogan'>"{sanitize_value(kwargs.get("slogan"))}"</p></td><td style="text-align: right;"><img src='data:image/png;base64,{logo_para_usar}' width='100'></td></tr></table><div class='section'><h2>Diagnóstico Geral do Mercado</h2><div style="text-align:center;"><img src='data:image/png;base64,{kwargs.get("grafico_radar_b64","")}' style="width: 80%; max-width: 500px;"></div>{alerta_html}</div><div class='section'><h2>Matriz de Posicionamento Competitivo</h2>{matriz_html}</div><div class='section'><h2>Sugestões Estratégicas</h2><ul>{sugestoes_html}</ul></div><div class='section' style='page-break-before: always;'><h2>Apêndice: Dossiês dos Concorrentes</h2>{dossie_html}</div><hr style="margin-top: 40px; color: #e5e7eb;"><p style="text-align: center; font-size: 9pt; color: #9ca3af;">Relatório gerado por Radar Pro em {datetime.now().strftime('%d/%m/%Y')}</p></body></html>"""
-    return body
+def generate_sentiment_chart_base64(sentimentos):
+    if not sentimentos or not all(isinstance(v, (int, float)) for v in sentimentos.values()):
+        return ""
+    try:
+        dados_grafico = {
+            'Positivo': sentimentos.get('Positivo', 0),
+            'Negativo': sentimentos.get('Negativo', 0),
+            'Neutro': sentimentos.get('Neutro', 0)
+        }
+        df = pd.DataFrame(list(dados_grafico.items()), columns=['Sentimento', 'Valor'])
+        
+        plt.style.use('seaborn-v0_8-whitegrid')
+        fig, ax = plt.subplots(figsize=(6, 4))
+        
+        colors = {'Positivo': '#2ca02c', 'Negativo': '#d62728', 'Neutro': '#ff7f0e'}
+        bar_colors = [colors.get(s, '#7f7f7f') for s in df['Sentimento']]
+        
+        bars = ax.bar(df['Sentimento'], df['Valor'], color=bar_colors)
+        
+        ax.set_title('Análise de Sentimentos', fontsize=16, weight='bold', color='#333')
+        ax.set_ylabel('Pontuação (0-100)', fontsize=12)
+        ax.set_xlabel('')
+        ax.set_ylim(0, 100)
+        ax.tick_params(axis='x', rotation=0, labelsize=12)
+        ax.spines['top'].set_visible(False)
+        ax.spines['right'].set_visible(False)
+        
+        for bar in bars:
+            yval = bar.get_height()
+            ax.text(bar.get_x() + bar.get_width()/2.0, yval, int(yval), va='bottom', ha='center')
 
-def gerar_pdf(html):
+        buf = BytesIO()
+        plt.savefig(buf, format='png', bbox_inches='tight', transparent=True)
+        plt.close(fig)
+        buf.seek(0)
+        
+        return base64.b64encode(buf.getvalue()).decode('utf-8')
+    except Exception as e:
+        print(f"Erro ao gerar gráfico de sentimentos: {e}")
+        return ""
+
+def gerar_relatorio_pdf(data: dict):
+    maps_api_key = st.secrets.google.get("maps_api_key", "")
+    
+    sumario = data.get('sumario_executivo', 'N/A')
+    plano_acao_html = "".join([f"<li>{p}</li>" for p in data.get('plano_de_acao', [])])
+    demografia = data.get('analise_demografica', 'N/A')
+    dossies = data.get('dossies_concorrentes', [])
+    dossies_html = ""
+    for d in dossies:
+        dossies_html += f"""
+        <div class="dossie-card">
+            <h4>{d.get('nome', 'N/A')}</h4>
+            <p><strong>Pontos Fortes:</strong> {d.get('pontos_fortes', 'N/A')}</p>
+            <p><strong>Pontos Fracos:</strong> {d.get('pontos_fracos', 'N/A')}</p>
+        </div>
+        """
+        
+    sentiment_chart_b64 = generate_sentiment_chart_base64(data.get('analise_sentimentos', {}))
+    static_map_url = get_static_map_url(data.get('competidores', []), maps_api_key)
+
+    html_template = f"""
+    <html>
+    <head>
+        <meta charset="UTF-8">
+        <style>
+            @page {{ margin: 0.75in; }}
+            body {{ font-family: 'Helvetica', 'sans-serif'; color: #333; }}
+            h1 {{ color: #005f73; font-size: 24pt; border-bottom: 2px solid #005f73; padding-bottom: 10px; margin-bottom: 5px; }}
+            h2 {{ color: #0a9396; font-size: 16pt; margin-top: 30px; border-bottom: 1px solid #e0e0e0; padding-bottom: 8px; page-break-after: avoid; }}
+            h4 {{ margin-bottom: 5px; font-size: 12pt;}}
+            .subtitle {{ font-size: 12pt; color: #555; margin-top: 0; }}
+            .section {{ margin-bottom: 25px; page-break-inside: avoid; }}
+            .dossie-card {{ border: 1px solid #e0e0e0; padding: 15px; margin-top: 15px; }}
+            p, li {{ line-height: 1.5; font-size: 10pt; }}
+            ul {{ padding-left: 20px; }}
+            .center {{ text-align: center; }}
+            .footer {{ position: fixed; bottom: -25px; left: 0; right: 0; text-align: center; font-size: 8pt; color: #888; }}
+        </style>
+    </head>
+    <body>
+        <div class="footer">Relatório gerado por Radar Pro | {datetime.now().strftime('%d/%m/%Y')}</div>
+        <h1>Análise de Mercado: {data.get('termo_busca', 'N/A')}</h1>
+        <p class="subtitle"><strong>Localização:</strong> {data.get('localizacao_busca', 'N/A')}</p>
+        <div class="section"><h2>Visão Geral Estratégica</h2><p>{sumario}</p></div>
+        <div class="section center"><h2>Análise de Sentimentos</h2><img src="data:image/png;base64,{sentiment_chart_b64}" style="width: 80%; max-width: 500px;"></div>
+        <div class="section center" style="page-break-before: always;"><h2>Mapa da Concorrência</h2><img src="{static_map_url}" style="width: 100%; max-width: 600px;"></div>
+        <div class="section"><h2>Plano de Ação Sugerido</h2><ul>{plano_acao_html}</ul></div>
+        <div class="section"><h2>Análise Demográfica</h2><p>{demografia}</p></div>
+        <div class="section" style="page-break-before: always;"><h2>Dossiês dos Concorrentes</h2>{dossies_html}</div>
+    </body>
+    </html>
+    """
+
     pdf_bytes = BytesIO()
-    pisa_status = pisa.CreatePDF(html.encode('utf-8'), dest=pdf_bytes)
-    return pdf_bytes.getvalue() if not pisa_status.err else None
+    pisa_status = pisa.CreatePDF(BytesIO(html_template.encode('UTF-8')), dest=pdf_bytes)
+
+    if pisa_status.err:
+        st.error("Ocorreu um erro ao gerar o PDF.")
+        return None
+    
+    pdf_bytes.seek(0)
+    return pdf_bytes.getvalue()

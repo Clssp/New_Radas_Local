@@ -1,0 +1,32 @@
+/* style.css */
+
+/* Mudar a fonte principal para uma mais moderna */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap');
+
+html, body, [class*="st-"] {
+    font-family: 'Inter', sans-serif;
+}
+
+/* Customizar os botões */
+.stButton > button {
+    border-radius: 20px;
+    border: 1px solid #005f73;
+    color: #005f73;
+    background-color: #ffffff;
+}
+
+.stButton > button:hover {
+    border-color: #0a9396;
+    color: #0a9396;
+}
+
+/* Customizar o expander */
+.st-expander {
+    border-radius: 10px;
+    border: 1px solid #e5e7eb;
+}
+
+/* Customizar abas (tabs) */
+.stTabs [data-baseweb="tab-list"] {
+    gap: 24px;
+}
