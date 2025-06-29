@@ -1,32 +1,67 @@
-/* style.css */
+/* Conteúdo completo para o arquivo: style.css */
 
-/* Mudar a fonte principal para uma mais moderna */
+/* Importa a fonte do Google Fonts */
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap');
+
+/* Estilos Globais e Variáveis */
+:root {
+    --primary-color: #005f73;
+    --background-color: #f8f9fa; /* Fundo um pouco mais suave */
+    --secondary-background-color: #ffffff;
+    --text-color: #212529;
+    --border-color: #dee2e6;
+    --card-shadow: 0 4px 8px rgba(0, 0, 0, 0.04);
+}
+
+[data-theme="dark"] {
+    --primary-color: #94d2bd;
+    --background-color: #0d1117;
+    --secondary-background-color: #161b22;
+    --text-color: #c9d1d9;
+    --border-color: #30363d;
+    --card-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+}
 
 html, body, [class*="st-"] {
     font-family: 'Inter', sans-serif;
+    color: var(--text-color);
 }
 
-/* Customizar os botões */
+.stApp {
+    background-color: var(--background-color);
+}
+
+/* Correção de UX: Divisão da Sidebar */
+[data-testid="stSidebar"] {
+    border-right: 1px solid var(--border-color);
+    /* Removendo a sombra para um look mais limpo, a borda é suficiente */
+}
+
+/* Estilo para o cartão de mercado monitorado */
+[data-testid="stVerticalBlock"] > [style*="flex-direction: column;"] > [data-testid="stVerticalBlock"] {
+    border: 1px solid var(--border-color);
+    background-color: var(--secondary-background-color);
+    border-radius: 12px;
+    padding: 20px !important;
+    transition: box-shadow 0.2s ease-in-out, transform 0.2s ease;
+    box-shadow: var(--card-shadow);
+}
+
+[data-testid="stVerticalBlock"] > [style*="flex-direction: column;"] > [data-testid="stVerticalBlock"]:hover {
+    box-shadow: 0 8px 16px rgba(0, 0, 0, 0.08);
+    transform: translateY(-4px);
+}
+[data-theme="dark"] [data-testid="stVerticalBlock"] > [style*="flex-direction: column;"] > [data-testid="stVerticalBlock"]:hover {
+    box-shadow: 0 8px 16px rgba(0, 0, 0, 0.3);
+}
+
+/* Títulos */
+h1, h2, h3, h4 {
+    color: var(--text-color) !important;
+}
+
+/* Botões */
 .stButton > button {
-    border-radius: 20px;
-    border: 1px solid #005f73;
-    color: #005f73;
-    background-color: #ffffff;
-}
-
-.stButton > button:hover {
-    border-color: #0a9396;
-    color: #0a9396;
-}
-
-/* Customizar o expander */
-.st-expander {
-    border-radius: 10px;
-    border: 1px solid #e5e7eb;
-}
-
-/* Customizar abas (tabs) */
-.stTabs [data-baseweb="tab-list"] {
-    gap: 24px;
+    border-radius: 8px;
+    font-weight: 600;
 }

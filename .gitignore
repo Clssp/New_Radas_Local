@@ -1,19 +1,37 @@
-# Arquivo de segredos do Streamlit - NUNCA ENVIAR!
-.streamlit/secrets.toml
+# Conteúdo para o arquivo: .gitignore
 
-# Arquivos de ambiente Python
+# Ambientes Virtuais
 venv/
+.venv/
+env/
 .env
-.envrc
+
+# Arquivos de Segredos e Configuração Local
+.streamlit/secrets.toml
+secrets.toml
+.env.*
+
+# Arquivos de Cache do Python
 __pycache__/
-*.pyc
+*.py[cod]
+*$py.class
 
-# Arquivos gerados pelo sistema e logs
-*.log
-*.pdf
-
-# Arquivos do VSCode
+# Arquivos de IDE e Sistema Operacional
 .vscode/
+.idea/
+.DS_Store
+*.swp
 
-# Arquivo de histórico de consultas - DADOS LOCAIS
-historico_consultas.csv
+# Arquivos de build e distribuição
+build/
+dist/
+*.egg-info/
+
+# Arquivos de teste e relatórios
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Logs e arquivos de migração local
+*.log
+migrate_kpis.py

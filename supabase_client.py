@@ -1,30 +1,37 @@
+# Conteúdo para o arquivo: supabase_client.py (VERSÃO CORRIGIDA)
+
 import streamlit as st
 from supabase import create_client, Client
 
-# Inicializa o cliente como None para lidar com possíveis erros de inicialização
-supabase_client: Client = None
+# A anotação @st.cache_resource garante que esta função rode apenas uma vez,
+# criando um único cliente Supabase e reutilizando-o.
+@st.cache_resource
+def get_supabase_client() -> Client:
+    """
+    Cria e retorna um cliente Supabase, configurando a sessão do usuário se existir.
+    Usa o cache do Streamlit para evitar recriar a conexão a cada rerun.
+    """
+    try:
+        supabase_url = st.secrets["supabase"]["url"]
+        supabase_key = st.secrets["supabase"]["key"]
+        client = create_client(supabase_url, supabase_key)
 
-try:
-    # Cria a única instância do cliente Supabase para toda a aplicação
-    supabase_client = create_client(
-        st.secrets["supabase"]["url"],
-        st.secrets["supabase"]["key"]
-    )
+        # A lógica de restauração da sessão é movida para dentro da função.
+        # Isso garante que seja executada no momento certo.
+        if "user_session" in st.session_state and st.session_state.user_session:
+            client.auth.set_session(
+                st.session_state.user_session.access_token,
+                st.session_state.user_session.refresh_token
+            )
+        
+        print("Cliente Supabase inicializado com sucesso.")
+        return client
 
-    # Lógica de restauração da sessão: Fica aqui, no único lugar onde o cliente é criado.
-    # Se uma sessão de usuário já existir no estado do Streamlit, restaura ela.
-    if 'user_session' in st.session_state and st.session_state.user_session:
-        supabase_client.auth.set_session(
-            st.session_state.user_session.access_token,
-            st.session_state.user_session.refresh_token
-        )
+    except Exception as e:
+        st.error(f"Erro fatal ao inicializar o cliente Supabase: {e}")
+        st.stop()
+        return None
 
-except (KeyError, FileNotFoundError):
-    st.error("As credenciais do Supabase (URL e Key) não foram encontradas. Verifique seu arquivo .streamlit/secrets.toml.")
-    st.stop()
-
-except Exception as e:
-    st.warning(f"Não foi possível restaurar a sessão: {e}. Por favor, faça login novamente.")
-    # Limpa o estado da sessão se a restauração falhar para forçar um novo login.
-    for key in list(st.session_state.keys()):
-        del st.session_state[key]
+# Agora, em vez de exportar uma variável, vamos chamar a função para obter o cliente.
+# Fazemos isso para que outros módulos possam importá-lo facilmente.
+supabase_client = get_supabase_client()
