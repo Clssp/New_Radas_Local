@@ -1,41 +1,46 @@
-# Radar Pro 🚀
+# 📡 Radar Pro: Inteligência de Mercado
 
-### Inteligência de Mercado para Negócios Locais, Automatizada.
+![Logo do Radar Pro](logo.png)
 
-Radar Pro é uma aplicação web desenvolvida em Python e Streamlit, projetada para ser uma ferramenta de inteligência de mercado para agências e consultores. A plataforma automatiza a coleta e análise de dados de negócios locais, fornecendo insights estratégicos, análise de concorrência, perfil demográfico e planos de ação gerados por IA.
+[![Streamlit App](https://static.streamlit.io/badges/streamlit_badge_black_white.svg)](https://<COLE_A_URL_DO_SEU_APP_AQUI_QUANDO_ESTIVER_ONLINE>)
 
----
-
-## ✨ Funcionalidades Principais
-
-*   **📊 Dashboard Intuitivo:** Gerencie múltiplos "mercados" (ex: "Padaria" em "Vila Prudente, SP") a partir de um painel de controle central.
-*   **🤖 Análise Completa Automatizada:** Com um clique, o sistema busca concorrentes no Google Maps, coleta detalhes (reviews, notas) e usa a IA do **Google Gemini** para gerar relatórios completos.
-*   **💡 Insights Gerados por IA:** A análise inclui:
-    *   Sumário Executivo e Plano de Ação Estratégico.
-    *   Análise de Sentimentos com base nas avaliações dos concorrentes.
-    *   Perfil Demográfico detalhado do público-alvo.
-    *   Dossiês individuais para cada concorrente.
-*   **🗺️ Mapa de Concorrência Interativo:** Visualize a localização geográfica de todos os concorrentes mapeados em um mapa interativo.
-*   **📈 Tendências de Mercado:** Gráficos do Google Trends para o termo de busca, mostrando a evolução do interesse ao longo do tempo.
-*   **🗂️ Histórico de Análises (Snapshots):** Todas as análises são salvas como "snapshots", permitindo comparar a evolução dos KPIs (Key Performance Indicators) de um mercado ao longo do tempo.
+**Radar Pro** é uma plataforma de Business Intelligence (BI) desenvolvida em Python com Streamlit, projetada para fornecer análises de mercado local automatizadas para pequenos e médios empreendedores. A ferramenta responde à pergunta fundamental "Este negócio tem potencial neste local?" combinando dados geoespaciais, análise de concorrência e insights gerados por Inteligência Artificial.
 
 ---
 
-## 🛠️ Tecnologias Utilizadas
+### ✨ Principais Funcionalidades
+
+*   **📊 Dashboard Interativo:** Visualize e gerencie todos os seus mercados monitorados em um único lugar.
+*   **🤖 Análise com IA (OpenAI):** Geração automática de Sumário Executivo, Análise de Sentimentos, Plano de Ação e Análise SWOT.
+*   **🗺️ Mapeamento de Concorrentes (Google Maps):** Busca e exibe concorrentes em um mapa interativo, coletando dados como nota, endereço e localização.
+*   **📈 Análise de Tendências (Google Trends):** Acompanhe o interesse de busca por seu termo de negócio ao longo do tempo.
+*   **📉 Análise Temporal de KPIs:** Gráficos que mostram a evolução do número de concorrentes, nota média e sentimento do mercado ao longo do tempo.
+*   **📄 Relatórios em PDF:** Exporte análises detalhadas para um relatório profissional em PDF com um único clique.
+*   **⚙️ Painel de Administração:** Um painel completo para gerenciar usuários, visualizar métricas da plataforma e configurar limites de uso globais.
+
+---
+
+### 🚀 Tecnologias Utilizadas
 
 *   **Frontend:** [Streamlit](https://streamlit.io/)
-*   **Backend & Banco de Dados:** [Supabase](https://supabase.com/) (Autenticação, PostgreSQL DB, Storage)
-*   **Inteligência Artificial:** [Google Gemini API](https://ai.google.dev/)
-*   **Dados de Mercado:**
-    *   [Google Maps Platform API](https://developers.google.com/maps)
-    *   [Google Trends](https://trends.google.com/) (via `pytrends`)
-*   **Linguagem:** Python
+*   **Backend & Banco de Dados:** [Supabase](https://supabase.io/) (PostgreSQL)
+*   **Inteligência Artificial:** [OpenAI API (GPT)](https://openai.com/)
+*   **Dados Geoespaciais e de Concorrência:** [Google Maps Platform API](https://mapsplatform.google.com/)
+*   **Análise de Tendências:** [Pytrends](https://pypi.org/project/pytrends/)
+*   **Manipulação de Dados:** [Pandas](https://pandas.pydata.org/)
+*   **Geração de PDF:** [xhtml2pdf](https://xhtml2pdf.readthedocs.io/)
 
 ---
 
-## 🚀 Como Executar o Projeto Localmente
+### 🔧 Configuração e Instalação Local
 
-**1. Clone o Repositório:**
-``````bash
-git clone https://github.com/Clssp/New_Radas_Local.git
-cd New_Radas_Local
+Siga os passos abaixo para executar o projeto em sua máquina local.
+
+#### 1. Pré-requisitos
+*   Python 3.9+
+*   Git
+
+#### 2. Clone o Repositório
+```bash
+git clone <URL_DO_SEU_REPOSITORIO>
+cd <NOME_DA_PASTA_DO_PROJETO>
