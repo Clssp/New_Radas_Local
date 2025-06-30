@@ -5,7 +5,7 @@ import os
 # --- SUBSTITUA PELA SUA CHAVE DE API DO GOOGLE MAPS ---
 # Copie e cole a mesma chave que está no seu secrets.toml
 # Exemplo: API_KEY = "AIzaSy..."
-API_KEY = "AIzaSyB832XdCTbKkpKOJP2P5XMnibhMxMgMJKE" 
+API_KEY = "" 
 # ----------------------------------------------------
 
 print("Tentando inicializar o cliente do Google Maps...")
